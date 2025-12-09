@@ -33,6 +33,8 @@ SITE_NAME = os.environ['SITE_NAME']
 DEBUG = MODE.lower() == 'debug'
 
 ALLOWED_HOSTS = ['votes.inp.nsk.su', 'votes-dev.inp.nsk.su']
+if DEBUG:
+    ALLOWED_HOSTS += ['*']
 CSRF_TRUSTED_ORIGINS = ['https://votes.inp.nsk.su', 'https://votes-dev.inp.nsk.su']
 
 # CSRF settings
