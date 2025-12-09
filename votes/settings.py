@@ -35,6 +35,12 @@ DEBUG = MODE.lower() == 'debug'
 ALLOWED_HOSTS = ['votes.inp.nsk.su', 'votes-dev.inp.nsk.su']
 CSRF_TRUSTED_ORIGINS = ['https://votes.inp.nsk.su', 'https://votes-dev.inp.nsk.su']
 
+# CSRF settings
+CSRF_COOKIE_SECURE = not DEBUG  # Only send CSRF cookie over HTTPS in production
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
+CSRF_COOKIE_SAMESITE = 'Lax'  # CSRF cookie SameSite attribute
+CSRF_USE_SESSIONS = False  # Use cookies for CSRF token (not sessions)
+
 
 # Application definition
 
