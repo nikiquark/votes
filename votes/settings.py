@@ -43,6 +43,7 @@ CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
 CSRF_COOKIE_SAMESITE = 'Lax'  # CSRF cookie SameSite attribute
 CSRF_USE_SESSIONS = False  # Use cookies for CSRF token (not sessions)
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
