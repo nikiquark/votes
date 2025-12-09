@@ -1,0 +1,55 @@
+{% extends "core/base.html" %}
+
+{% block title %}Войти{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <h1 class="h3 mb-4 fw-semibold text-center">Войти</h1>
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+        <form method="post" class="card shadow-sm">
+            <div class="card-body p-4">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.username.id_for_label }}">Логин</label>
+                    <input
+                        type="text"
+                        name="{{ form.username.html_name }}"
+                        class="form-control{% if form.username.errors %} is-invalid{% endif %}"
+                        id="{{ form.username.id_for_label }}"
+                        value="{{ form.username.value|default_if_none:'' }}"
+                        autofocus
+                        required
+                    >
+                    {% if form.username.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.username.errors.as_text|striptags }}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">Пароль</label>
+                    <input
+                        type="password"
+                        name="{{ form.password.html_name }}"
+                        class="form-control{% if form.password.errors %} is-invalid{% endif %}"
+                        id="{{ form.password.id_for_label }}"
+                        required
+                    >
+                    {% if form.password.errors %}
+                        <div class="invalid-feedback">
+                            {{ form.password.errors.as_text|striptags }}
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Войти</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

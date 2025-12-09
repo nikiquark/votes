@@ -1,0 +1,391 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ poll.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="mb-3">
+            <a href="{% url 'core:history' %}" class="text-decoration-none">
+                <i class="bi bi-arrow-left"></i> Назад к истории
+            </a>
+        </div>
+
+        <!-- Название опроса -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h1 class="h4 mb-0">{{ poll.title }}</h1>
+            </div>
+        </div>
+
+        <!-- Администрирование -->
+        <div class="mb-3">
+            <h2 class="h5 mb-3">Администрирование</h2>
+            
+            <!-- Кнопки управления -->
+            <div class="d-flex gap-2 mb-4">
+                <button 
+                    type="button" 
+                    class="btn btn-primary" 
+                    id="startVotingBtn"
+                    {% if poll.time_start %}disabled{% endif %}
+                    data-bs-toggle="modal"
+                    data-bs-target="#startVotingModal"
+                >
+                    Начать голосование
+                </button>
+                <button 
+                    type="button" 
+                    class="btn btn-danger" 
+                    id="endVotingBtn"
+                    {% if not poll.time_start or poll.time_end %}disabled{% endif %}
+                    data-bs-toggle="modal"
+                    data-bs-target="#endVotingModal"
+                >
+                    Закончить голосование
+                </button>
+            </div>
+        </div>
+
+        <!-- Таблица участников -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h3 class="h6 mb-3">Участники опроса</h3>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 60px;">#</th>
+                                <th scope="col">Участник</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Ссылка</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for participant in poll.members.all %}
+                            <tr class="{% if participant.is_voted %}table-success{% else %}table-warning{% endif %}">
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ participant.name }}</td>
+                                <td>{{ participant.email }}</td>
+                                <td>
+                                    <button 
+                                        type="button" 
+                                        class="btn btn-sm btn-outline-primary copy-link-btn" 
+                                        data-link="{{ SITE_NAME }}/{{ poll.url }}/{{ participant.url }}"
+                                        title="Скопировать"
+                                    >
+                                        <i class="bi bi-clipboard"></i> Скопировать
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    Участники не найдены
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Информация о датах начала и конца опроса -->
+        {% if formatted_time_start or formatted_time_end %}
+        <div class="card shadow-sm mt-4">
+            <div class="card-body">
+                {% if formatted_time_start %}
+                <div class="mb-2">
+                    <strong>Начало:</strong> {{ formatted_time_start }}
+                </div>
+                {% endif %}
+                {% if formatted_time_end %}
+                <div>
+                    <strong>Конец:</strong> {{ formatted_time_end }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Результаты голосования -->
+        {% include "core/poll_results.html" %}
+    </div>
+</div>
+
+<style>
+    .table-warning {
+        background-color: #ffe0b2 !important; /* желто-оранжевый */
+    }
+    .table-warning:hover {
+        background-color: #ffcc80 !important;
+    }
+    .table-success {
+        background-color: #c8e6c9 !important; /* зеленый */
+    }
+    .table-success:hover {
+        background-color: #a5d6a7 !important;
+    }
+    code {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    .copy-link-btn {
+        min-width: 150px;
+        white-space: nowrap;
+    }
+</style>
+
+<!-- Модальное окно подтверждения начала голосования -->
+<div class="modal fade" id="startVotingModal" tabindex="-1" aria-labelledby="startVotingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="startVotingModalLabel">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите начать голосование?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+                <button type="button" class="btn btn-primary" id="confirmStartBtn">Да</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения окончания голосования -->
+<div class="modal fade" id="endVotingModal" tabindex="-1" aria-labelledby="endVotingModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="endVotingModalLabel">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите закончить голосование?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+                <button type="button" class="btn btn-danger" id="confirmEndBtn">Да</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(";").shift();
+        return "";
+    }
+
+    const pollId = {{ poll.pk }};
+    const csrfToken = getCookie("csrftoken");
+
+    // Обработка начала голосования
+    const confirmStartBtn = document.getElementById("confirmStartBtn");
+    if (confirmStartBtn) {
+        confirmStartBtn.addEventListener("click", function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Обработка...";
+
+            fetch("{% url 'core:start_poll' poll.pk %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/json",
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка при обращении к серверу');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.ok) {
+                        // Закрываем модальное окно
+                        const modalEl = document.getElementById("startVotingModal");
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                        
+                        // Делаем кнопку неактивной
+                        const startBtn = document.getElementById("startVotingBtn");
+                        if (startBtn) {
+                            startBtn.disabled = true;
+                        }
+                        
+                        // Активируем кнопку "Закончить голосование"
+                        const endBtn = document.getElementById("endVotingBtn");
+                        if (endBtn) {
+                            endBtn.disabled = false;
+                        }
+                        
+                        // Перезагружаем страницу для обновления дат
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    } else {
+                        if (window.djangoMessages && window.djangoMessages.showApiError) {
+                            window.djangoMessages.showApiError('Произошла ошибка при начале голосования. Пожалуйста, перезагрузите страницу.');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = "Да";
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    if (window.djangoMessages && window.djangoMessages.showApiError) {
+                        window.djangoMessages.showApiError('Произошла ошибка при начале голосования. Пожалуйста, перезагрузите страницу.');
+                    }
+                    btn.disabled = false;
+                    btn.textContent = "Да";
+                });
+        });
+    }
+
+    // Обработка окончания голосования
+    const confirmEndBtn = document.getElementById("confirmEndBtn");
+    if (confirmEndBtn) {
+        confirmEndBtn.addEventListener("click", function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = "Обработка...";
+
+            fetch("{% url 'core:end_poll' poll.pk %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": csrfToken,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Content-Type": "application/json",
+                },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Ошибка при обращении к серверу');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.ok) {
+                        // Закрываем модальное окно
+                        const modalEl = document.getElementById("endVotingModal");
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                        
+                        // Делаем кнопку неактивной
+                        const endBtn = document.getElementById("endVotingBtn");
+                        if (endBtn) {
+                            endBtn.disabled = true;
+                        }
+                        
+                        // Перезагружаем страницу для обновления дат
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 500);
+                    } else {
+                        if (window.djangoMessages && window.djangoMessages.showApiError) {
+                            window.djangoMessages.showApiError('Произошла ошибка при окончании голосования. Пожалуйста, перезагрузите страницу.');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = "Да";
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    if (window.djangoMessages && window.djangoMessages.showApiError) {
+                        window.djangoMessages.showApiError('Произошла ошибка при окончании голосования. Пожалуйста, перезагрузите страницу.');
+                    }
+                    btn.disabled = false;
+                    btn.textContent = "Да";
+                });
+        });
+    }
+
+    // Сброс состояния кнопок в модальных окнах при закрытии
+    const startModal = document.getElementById("startVotingModal");
+    if (startModal) {
+        startModal.addEventListener("hidden.bs.modal", function() {
+            const btn = document.getElementById("confirmStartBtn");
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Да";
+            }
+        });
+    }
+
+    const endModal = document.getElementById("endVotingModal");
+    if (endModal) {
+        endModal.addEventListener("hidden.bs.modal", function() {
+            const btn = document.getElementById("confirmEndBtn");
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = "Да";
+            }
+        });
+    }
+
+    // Обработка копирования ссылок в буфер обмена
+    const copyLinkButtons = document.querySelectorAll(".copy-link-btn");
+    copyLinkButtons.forEach(function(btn) {
+        btn.addEventListener("click", function() {
+            const link = this.getAttribute("data-link");
+            const originalText = this.innerHTML;
+            
+            // Копируем ссылку в буфер обмена
+            navigator.clipboard.writeText(link).then(function() {
+                // Временно меняем текст кнопки на подтверждение
+                btn.innerHTML = '<i class="bi bi-check"></i> Скопировано!';
+                btn.classList.remove("btn-outline-primary");
+                btn.classList.add("btn-success");
+                
+                // Возвращаем исходный вид через 2 секунды
+                setTimeout(function() {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove("btn-success");
+                    btn.classList.add("btn-outline-primary");
+                }, 2000);
+            }).catch(function(err) {
+                console.error("Ошибка при копировании:", err);
+                // Fallback для старых браузеров
+                const textArea = document.createElement("textarea");
+                textArea.value = link;
+                textArea.style.position = "fixed";
+                textArea.style.opacity = "0";
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand("copy");
+                    btn.innerHTML = '<i class="bi bi-check"></i> Скопировано!';
+                    btn.classList.remove("btn-outline-primary");
+                    btn.classList.add("btn-success");
+                    setTimeout(function() {
+                        btn.innerHTML = originalText;
+                        btn.classList.remove("btn-success");
+                        btn.classList.add("btn-outline-primary");
+                    }, 2000);
+                } catch (err) {
+                    console.error("Ошибка при копировании (fallback):", err);
+                    if (window.djangoMessages && window.djangoMessages.showApiError) {
+                        window.djangoMessages.showApiError('Не удалось скопировать ссылку');
+                    }
+                }
+                document.body.removeChild(textArea);
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
+

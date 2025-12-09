@@ -1,0 +1,139 @@
+{% extends "core/base.html" %}
+
+{% block title %}История опросов{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h4 mb-1">История опросов</h1>
+                <p class="text-muted small mb-0">
+                    Организация: {{ current_organization.name|default:"—" }}
+                </p>
+            </div>
+        </div>
+
+        {% if polls %}
+            <div class="row g-3 mb-4">
+                {% for poll in polls %}
+                    <div class="col-12">
+                        <a href="{% url 'core:history_detail' poll.pk %}" class="text-decoration-none">
+                            <div class="card shadow-sm border-hover h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h5 class="card-title mb-2">{{ poll.title }}</h5>
+                                            <p class="text-muted small mb-0">
+                                                <i class="bi bi-calendar3"></i>
+                                                {% if poll.status == "WAITING" %}
+                                                    Создан: {{ poll.created_at|date:"d.m.Y H:i" }}
+                                                {% elif poll.status == "PENDING" %}
+                                                    Начат: {{ poll.time_start|date:"d.m.Y H:i" }}
+                                                {% elif poll.status == "FINISHED" %}
+                                                    Завершён: {{ poll.time_end|date:"d.m.Y H:i" }}
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            {% if poll.status == "WAITING" %}
+                                                <span class="badge bg-secondary">Ожидание</span>
+                                            {% elif poll.status == "PENDING" %}
+                                                <span class="badge bg-warning text-dark">В процессе</span>
+                                            {% elif poll.status == "FINISHED" %}
+                                                <span class="badge bg-success">Завершено</span>
+                                            {% endif %}
+                                            <i class="bi bi-chevron-right text-muted fs-5"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if is_paginated %}
+                <nav aria-label="Навигация по страницам">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1" aria-label="Первая">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Предыдущая">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;&laquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                        {% endif %}
+
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Следующая">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Последняя">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;&raquo;</span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                <div class="text-center text-muted small mt-2">
+                    Показано {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_obj.paginator.count }} опросов
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-inbox fs-1 text-muted mb-3"></i>
+                    <h5 class="text-muted">Опросы не найдены</h5>
+                    <p class="text-muted small mb-0">У вас пока нет созданных опросов в этой организации.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .border-hover {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .border-hover:hover {
+        border-color: #0d6efd !important;
+        box-shadow: 0 0.125rem 0.5rem rgba(13, 110, 253, 0.15) !important;
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}

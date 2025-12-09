@@ -1,0 +1,424 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Votes{% endblock %}</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN"
+        crossorigin="anonymous"
+    >
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+    >
+    <link
+        rel="stylesheet"
+        type="text/css"
+        href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    >
+    <style>
+        .nav-link-underline {
+            position: relative;
+            padding: 0.35rem 0.6rem;
+            color: #6c757d;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 0.25rem;
+        }
+        .nav-link-underline::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100%;
+            height: 2px;
+            background-color: currentColor;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.2s ease;
+            opacity: 0.6;
+        }
+        .nav-link-underline:hover::after,
+        .nav-link-underline:focus-visible::after {
+            transform: scaleX(1);
+        }
+        /* Убираем border у кнопок организации и профиля */
+        .btn-link[data-bs-target="#organizationModal"],
+        .btn-link[data-bs-target="#profileModal"] {
+            border: none !important;
+        }
+        /* Стили для мобильного меню */
+        @media (max-width: 991.98px) {
+            .navbar-collapse {
+                margin-top: 1rem;
+                padding-top: 1rem;
+                border-top: 1px solid rgba(0, 0, 0, 0.1);
+            }
+            .navbar-collapse .d-flex {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.75rem !important;
+                width: 100%;
+            }
+            .navbar-collapse .nav-link-underline,
+            .navbar-collapse .btn {
+                width: 100%;
+                text-align: left;
+                padding: 0.5rem 0.75rem;
+            }
+            .navbar-collapse .btn-link {
+                justify-content: flex-start;
+            }
+            /* Кнопка профиля: username и иконка в одной строке с правильными отступами */
+            .navbar-collapse .btn-link[data-bs-target="#profileModal"] {
+                padding: 0.5rem 0.75rem !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                white-space: nowrap;
+                border: none !important;
+            }
+            .navbar-collapse .btn-link[data-bs-target="#profileModal"] > * {
+                flex-shrink: 0;
+            }
+            /* Кнопка организации: такие же отступы как у остальных элементов */
+            .navbar-collapse .btn-link[data-bs-target="#organizationModal"] {
+                padding: 0.5rem 0.75rem !important;
+                border: none !important;
+            }
+        }
+        /* Стили для контейнера Toastify - фиксируем позицию */
+        /* Контейнер должен быть out of flow и не влиять на layout */
+        /* Применяем стили ко всем возможным контейнерам Toastify */
+        #toast-container,
+        [id^="toast-container"],
+        [class*="toastify-container"] {
+            position: fixed !important;
+            z-index: 1060 !important; /* Выше Bootstrap модальных окон (1050) */
+            padding: 1rem !important;
+            margin: 0 !important;
+            pointer-events: none !important; /* Контейнер не перехватывает события */
+            width: auto !important;
+            height: auto !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            overflow: visible !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            box-sizing: border-box !important;
+            /* Гарантируем, что контейнер не влияет на layout */
+            display: block !important;
+            float: none !important;
+            clear: none !important;
+        }
+        /* Toast элементы должны перехватывать события */
+        #toast-container > *,
+        [id^="toast-container"] > *,
+        [class*="toastify-container"] > * {
+            pointer-events: auto !important;
+        }
+        /* Переопределяем классы Toastify для правильного позиционирования */
+        #toast-container.toastify-top-left,
+        #toast-container.toastify-top-right,
+        #toast-container.toastify-bottom-left,
+        #toast-container.toastify-bottom-right,
+        [class*="toastify-top-left"],
+        [class*="toastify-top-right"],
+        [class*="toastify-bottom-left"],
+        [class*="toastify-bottom-right"] {
+            position: fixed !important;
+        }
+        #toast-container.toastify-top-left,
+        [class*="toastify-top-left"] {
+            top: 0 !important;
+            left: 0 !important;
+            bottom: auto !important;
+            right: auto !important;
+        }
+        #toast-container.toastify-top-right,
+        [class*="toastify-top-right"] {
+            top: 0 !important;
+            right: 0 !important;
+            bottom: auto !important;
+            left: auto !important;
+        }
+        #toast-container.toastify-bottom-left,
+        [class*="toastify-bottom-left"] {
+            bottom: 0 !important;
+            left: 0 !important;
+            top: auto !important;
+            right: auto !important;
+        }
+        #toast-container.toastify-bottom-right,
+        [class*="toastify-bottom-right"] {
+            bottom: 0 !important;
+            right: 0 !important;
+            top: auto !important;
+            left: auto !important;
+        }
+        /* Стили для toast-уведомлений */
+        .django-toast {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 0.875rem;
+            padding: 0.75rem 1rem;
+            min-width: 300px;
+            max-width: 500px;
+            position: relative;
+            overflow: hidden;
+            z-index: 0;
+        }
+        /* Крестик в одной строке с текстом */
+        .django-toast .toastify__close {
+            opacity: 0.8;
+            z-index: 2;
+            position: relative;
+            flex-shrink: 0;
+            margin-left: 0.75rem;
+            align-self: center;
+            line-height: 1;
+            padding: 0;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+        .django-toast .toastify__close:hover {
+            opacity: 1;
+        }
+        /* Стили для ползунка таймера */
+        .toast-progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background-color: rgba(255, 255, 255, 0.4);
+            width: 100%;
+            transform-origin: left;
+            z-index: 1;
+            border-radius: 0 0 0.375rem 0.375rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-semibold" href="{% url 'core:landing' %}">Голосование СО РАН</a>
+            <button
+                class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav"
+                aria-controls="navbarNav"
+                aria-expanded="false"
+                aria-label="Переключить навигацию"
+            >
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <div class="navbar-nav ms-auto d-flex align-items-lg-center gap-3 flex-column flex-lg-row">
+                    {% if user.is_authenticated %}
+                        <a class="nav-link-underline text-secondary" href="{% url 'core:create' %}">Создать</a>
+                        <a class="nav-link-underline text-secondary" href="{% url 'core:history' %}">История</a>
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                        {% if current_organization %}
+                            <button
+                                class="btn btn-link nav-link-underline text-secondary p-0"
+                                type="button"
+                                data-bs-toggle="modal"
+                                data-bs-target="#organizationModal"
+                                aria-label="Выбрать организацию"
+                            >
+                                {{ current_organization.name }}
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                    {% if user.is_authenticated %}
+                        <button
+                            class="btn btn-link d-flex align-items-center gap-2 p-0 text-secondary text-decoration-none"
+                            type="button"
+                            aria-label="Открыть профиль"
+                            data-bs-toggle="modal"
+                            data-bs-target="#profileModal"
+                        >
+                            <i class="bi bi-person-circle fs-4"></i>
+                            <span class="navbar-text text-muted small mb-0">{{ user.username }}</span>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="container">
+        {% if messages %}
+            <div data-django-messages style="display: none;">
+                {% for message in messages %}
+                    <div data-message data-message-tag="{{ message.tags|default:'info' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+    {% if user.is_authenticated %}
+    <div class="modal fade" id="organizationModal" tabindex="-1" aria-labelledby="organizationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="organizationModalLabel">Выбор организации</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {% if user_organizations %}
+                        <form id="organizationForm">
+                            <div class="list-group mb-3">
+                                {% for org in user_organizations %}
+                                    <label class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <input
+                                                class="form-check-input me-2"
+                                                type="radio"
+                                                name="organization"
+                                                value="{{ org.id }}"
+                                                {% if current_organization and current_organization.id == org.id %}checked{% endif %}
+                                            >
+                                            {{ org.name }}
+                                        </div>
+                                        <span class="badge bg-light text-muted border">{{ org.paid_until }}</span>
+                                    </label>
+                                {% endfor %}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary w-100">Сохранить</button>
+                                <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Отмена</button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <p class="text-muted mb-0">Организации не найдены.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h1 class="modal-title fs-5" id="profileModalLabel">Профиль</h1>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <i class="bi bi-person-circle fs-2 text-secondary"></i>
+                        <div>
+                            <div class="fw-semibold">{{ user.username }}</div>
+                            {% with org_user=user.profiles.first %}
+                                <div class="text-muted small">
+                                    {{ org_user.organization.name|default:"Организация не указана" }}
+                                </div>
+                            {% endwith %}
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'core:password_change' %}" class="btn btn-outline-primary w-100">Смена пароля</a>
+                        <form method="post" action="{% url 'core:logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger w-100">Выйти</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Контейнер для toast-уведомлений - создаем заранее для предотвращения проблем с layout -->
+    <!-- Контейнер должен быть в конце body и иметь position: fixed для предотвращения влияния на layout -->
+    <div id="toast-container" class="toastify-bottom-right" style="position: fixed; z-index: 1060; bottom: 0; right: 0; margin: 0; padding: 1rem; pointer-events: none;"></div>
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"
+    ></script>
+    <script
+        type="text/javascript"
+        src="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.js"
+    ></script>
+    <script src="{% static 'core/js/messages.js' %}"></script>
+    {% if user.is_authenticated %}
+    <script>
+        (function () {
+            const form = document.getElementById("organizationForm");
+            if (!form) return;
+
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(";").shift();
+                return "";
+            }
+
+            form.addEventListener("submit", function (event) {
+                event.preventDefault();
+                const selected = form.querySelector('input[name="organization"]:checked');
+                if (!selected) return;
+
+                const organizationId = selected.value;
+                const csrfToken = getCookie("csrftoken");
+
+                fetch("{% url 'core:select_organization' %}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: new URLSearchParams({organization_id: organizationId}),
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error("Не удалось выбрать организацию");
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        localStorage.setItem("current_org_id", organizationId);
+                        const modalEl = document.getElementById("organizationModal");
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+                        window.location.reload();
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                        if (window.djangoMessages && window.djangoMessages.showApiError) {
+                            window.djangoMessages.showApiError('Произошла ошибка при выборе организации. Пожалуйста, перезагрузите страницу.');
+                        }
+                    });
+            });
+
+            // If localStorage has a different org, sync it once on load
+            const storedOrgId = localStorage.getItem("current_org_id");
+            const currentChecked = form.querySelector('input[name="organization"]:checked');
+            if (storedOrgId && currentChecked && storedOrgId !== currentChecked.value) {
+                form.querySelectorAll('input[name="organization"]').forEach((input) => {
+                    input.checked = input.value === storedOrgId;
+                });
+                form.dispatchEvent(new Event("submit"));
+            }
+        })();
+    </script>
+    {% endif %}
+</body>
+</html>
+

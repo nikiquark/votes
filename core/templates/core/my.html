@@ -1,0 +1,18 @@
+{% extends "core/base.html" %}
+
+{% block title %}Мой профиль{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h1 class="h4 fw-semibold mb-3">Здравствуйте, {{ organization_user.name }}</h1>
+                <p class="mb-1 text-muted">Пользователь: {{ organization_user.user.username }}</p>
+                <p class="mb-1 text-muted">Текущая организация: {{ current_organization.name|default:organization.name }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

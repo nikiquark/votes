@@ -1,0 +1,12 @@
+{% extends "core/base.html" %}
+
+{% block title %}Landing{% endblock %}
+
+{% block content %}
+<div class="py-5 text-center">
+    <h1 class="display-5 fw-bold text-primary mb-4">landing</h1>
+    <p class="lead text-muted mb-4">Добро пожаловать в систему голосований.</p>
+    <a class="btn btn-primary btn-lg" href="{% url 'core:login' %}">Войти</a>
+</div>
+{% endblock %}
+

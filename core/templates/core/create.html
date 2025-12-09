@@ -1,0 +1,474 @@
+{% extends "core/base.html" %}
+
+{% block title %}Создать{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <p class="text-uppercase text-muted small mb-1">Новый опрос</p>
+                        <h4 class="mb-0">Создать опрос</h4>
+                    </div>
+                    <span class="badge text-bg-light">
+                        Организация: {{ current_organization.name|default:"—" }}
+                    </span>
+                </div>
+
+                {% if created_poll %}
+                    <div class="alert alert-success">
+                        <div class="fw-semibold mb-1">Опрос создан</div>
+                        <div class="small text-muted">ID опроса: {{ created_poll.url }}</div>
+                        <div class="mt-2 mb-0">Сохраните ссылку и разошлите участникам.</div>
+                    </div>
+                {% endif %}
+
+                <form id="pollForm" method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    <div class="mb-3">
+                        <label class="form-label" for="titleInput">Тема опроса</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="titleInput"
+                            name="title"
+                            maxlength="400"
+                            required
+                            value="{{ form.title.value|default_if_none:'' }}"
+                            placeholder="Например: Выбор председателя"
+                        >
+                        {% if form.title.errors %}
+                            <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label" for="creatorInput">Создатель опроса</label>
+                                <input
+                                    type="text"
+                                    class="form-control bg-light"
+                                    id="creatorInput"
+                                    readonly
+                                    value="{{ organization_user.name|default_if_none:'' }}"
+                                >
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label" for="adminInput">Email администратора</label>
+                                <input
+                                    type="email"
+                                    class="form-control bg-light"
+                                    id="adminInput"
+                                    readonly
+                                    value="{{ organization_user.email|default_if_none:'' }}"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <p class="text-uppercase text-muted small mb-1">Вопросы</p>
+                            <h5 class="mb-0">Настройте список вопросов</h5>
+                        </div>
+                        <button class="btn btn-outline-secondary" type="button" id="addQuestionBtn">
+                            <i class="bi bi-plus-lg me-1"></i>Добавить вопрос
+                        </button>
+                    </div>
+                    <div id="questionsContainer" class="mb-4"></div>
+
+                    <hr class="my-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <p class="text-uppercase text-muted small mb-1">Участники</p>
+                            <h5 class="mb-0">Загрузите или введите участников</h5>
+                        </div>
+                        <button class="btn btn-outline-secondary" type="button" id="addParticipantBtn">
+                            <i class="bi bi-person-plus me-1"></i>Добавить участника
+                        </button>
+                    </div>
+                    <div class="mb-3">
+                        <label for="participantsFile" class="form-label">Загрузить список (.txt, формат: Имя,email)</label>
+                        <input class="form-control" type="file" id="participantsFile" accept=".txt">
+                        <div class="form-text">Каждая строка: Имя,Email. Пример: Иван Иванов,ivan@example.com</div>
+                    </div>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-striped align-middle" id="participantsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 48px;">#</th>
+                                    <th>Имя</th>
+                                    <th>Email</th>
+                                    <th style="width: 56px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+
+                    <input type="hidden" name="questions_data" id="id_questions_data">
+                    <input type="hidden" name="participants_data" id="id_participants_data">
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a class="btn btn-outline-secondary" href="{% url 'core:landing' %}">Отмена</a>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="bi bi-send me-1"></i>Создать опрос
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase mb-3">Подсказки</h6>
+                <ul class="list-unstyled small text-muted mb-0">
+                    <li class="mb-2">— Добавьте минимум два варианта ответа к каждому вопросу.</li>
+                    <li class="mb-2">— Для мультивыбора задайте границы «от» и «до».</li>
+                    <li>— Участников можно добавить вручную или загрузить из файла.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        const formEl = document.getElementById("pollForm");
+        const questionsContainer = document.getElementById("questionsContainer");
+        const participantsTableBody = document.querySelector("#participantsTable tbody");
+        const questionsInput = document.getElementById("id_questions_data");
+        const participantsInput = document.getElementById("id_participants_data");
+
+        let questions = [{
+            question: "",
+            choices: ["", ""],
+            type: "question",
+            min: 1,
+            max: 1,
+        }];
+        let participants = [];
+        
+        function renderQuestions() {
+            questionsContainer.innerHTML = "";
+            questions.forEach((q, idx) => {
+                const card = document.createElement("div");
+                card.className = "border rounded p-3 mb-3";
+
+                const header = document.createElement("div");
+                header.className = "d-flex justify-content-between align-items-start gap-2 mb-2";
+
+                const title = document.createElement("div");
+                title.innerHTML = `<div class="text-muted small">Вопрос ${idx + 1}</div>`;
+
+                const tools = document.createElement("div");
+                tools.className = "d-flex align-items-center gap-2";
+
+                const toggle = document.createElement("div");
+                toggle.className = "form-check form-switch";
+                toggle.innerHTML = `
+                    <input class="form-check-input" type="checkbox" role="switch" id="qtype-${idx}" ${q.type === "multiple" ? "checked" : ""}>
+                    <label class="form-check-label small" for="qtype-${idx}">Мультивыбор</label>
+                `;
+                toggle.querySelector("input").addEventListener("change", (e) => {
+                    const nextQuestions = [...questions];
+                    nextQuestions[idx].type = e.target.checked ? "multiple" : "question";
+                    if (!e.target.checked) {
+                        nextQuestions[idx].min = 1;
+                        nextQuestions[idx].max = 1;
+                    } else {
+                        // При переключении на мультивыбор устанавливаем разумные значения по умолчанию
+                        if (nextQuestions[idx].min === 1 && nextQuestions[idx].max === 1) {
+                            nextQuestions[idx].min = 0;
+                            nextQuestions[idx].max = 1;
+                        }
+                    }
+                    questions = nextQuestions;
+                    renderQuestions();
+                });
+                tools.appendChild(toggle);
+
+                if (idx > 0) {
+                    const deleteBtn = document.createElement("button");
+                    deleteBtn.type = "button";
+                    deleteBtn.className = "btn btn-link text-danger p-0";
+                    deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                    deleteBtn.addEventListener("click", () => {
+                        questions = questions.filter((_, i) => i !== idx);
+                        renderQuestions();
+                    });
+                    tools.appendChild(deleteBtn);
+                }
+
+                header.appendChild(title);
+                header.appendChild(tools);
+                card.appendChild(header);
+
+                const textInput = document.createElement("input");
+                textInput.type = "text";
+                textInput.required = true;
+                textInput.placeholder = "Текст вопроса";
+                textInput.className = "form-control mb-3";
+                textInput.value = q.question;
+                textInput.addEventListener("input", (e) => {
+                    questions[idx].question = e.target.value;
+                });
+                card.appendChild(textInput);
+
+                if (q.type === "multiple") {
+                    const row = document.createElement("div");
+                    row.className = "row g-3 mb-3";
+                    row.innerHTML = `
+                        <div class="col-6">
+                            <label class="form-label small mb-1" for="min-${idx}">Минимум</label>
+                            <input id="min-${idx}" type="number" min="0" class="form-control" value="${q.min}">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small mb-1" for="max-${idx}">Максимум</label>
+                            <input id="max-${idx}" type="number" min="1" class="form-control" value="${q.max}">
+                        </div>
+                    `;
+                    row.querySelector(`#min-${idx}`).addEventListener("input", (e) => {
+                        const val = Math.max(0, Number(e.target.value) || 0);
+                        const choicesCount = questions[idx].choices.filter(Boolean).length || questions[idx].choices.length;
+                        const maxLimit = Math.max(1, choicesCount);
+                        
+                        questions[idx].min = val;
+                        if (questions[idx].max < val) {
+                            // Устанавливаем max равным min, но не больше количества вариантов
+                            questions[idx].max = Math.min(val, maxLimit);
+                        }
+                        // Также проверяем, что min не превышает количество вариантов
+                        if (val > maxLimit) {
+                            questions[idx].min = maxLimit;
+                        }
+                        renderQuestions();
+                    });
+                    row.querySelector(`#max-${idx}`).addEventListener("input", (e) => {
+                        const val = Math.max(1, Number(e.target.value) || 1);
+                        const limit = questions[idx].choices.filter(Boolean).length || questions[idx].choices.length;
+                        questions[idx].max = Math.min(val, limit || val);
+                        if (questions[idx].max < questions[idx].min) {
+                            questions[idx].min = questions[idx].max;
+                        }
+                        renderQuestions();
+                    });
+                    card.appendChild(row);
+                }
+
+                const choiceList = document.createElement("div");
+                choiceList.className = "mb-2";
+                
+                // Нормализуем массив choices: удаляем пустые в середине, оставляем последний пустым если нужно
+                const normalizedChoices = (() => {
+                    if (q.choices.length === 0) return [""];
+                    // Удаляем пустые варианты в середине, оставляем последний пустым если он пустой
+                    const nonEmpty = q.choices.filter((c, i) => c.trim() !== "" || i === q.choices.length - 1);
+                    return nonEmpty.length > 0 ? nonEmpty : [""];
+                })();
+                
+                // Обновляем исходный массив для синхронизации
+                q.choices = normalizedChoices;
+                
+                normalizedChoices.forEach((choice, choiceIdx) => {
+                    const group = document.createElement("div");
+                    group.className = "input-group mb-2";
+
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.className = "form-control";
+                    input.placeholder = "Вариант ответа";
+                    input.value = choice;
+                    
+                    input.addEventListener("input", (e) => {
+                        // Обновляем данные по индексу (массив уже нормализован)
+                        if (questions[idx].choices[choiceIdx] !== undefined) {
+                            questions[idx].choices[choiceIdx] = e.target.value;
+                        }
+                    });
+                    group.appendChild(input);
+
+                    // Показываем кнопку удаления только если есть хотя бы 2 непустых варианта
+                    const nonEmptyCount = normalizedChoices.filter(c => c.trim() !== "").length;
+                    const isLastChoice = choiceIdx === normalizedChoices.length - 1;
+                    const shouldShowDelete = nonEmptyCount > 1 || (nonEmptyCount === 1 && !isLastChoice);
+                    
+                    if (shouldShowDelete) {
+                        const btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className = "btn btn-outline-danger";
+                        btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+                        btn.addEventListener("click", () => {
+                            const next = [...questions];
+                            // Нормализуем массив перед удалением для корректной работы с индексами
+                            let currentChoices = [...next[idx].choices];
+                            if (currentChoices.length === 0) {
+                                currentChoices = [""];
+                            } else {
+                                // Удаляем пустые в середине, оставляем последний пустым если он пустой
+                                const nonEmpty = currentChoices.filter((c, i) => c.trim() !== "" || i === currentChoices.length - 1);
+                                currentChoices = nonEmpty.length > 0 ? nonEmpty : [""];
+                            }
+                            
+                            // Удаляем вариант по индексу
+                            if (choiceIdx < currentChoices.length) {
+                                currentChoices.splice(choiceIdx, 1);
+                            }
+                            
+                            // Убеждаемся, что есть хотя бы один вариант
+                            if (currentChoices.length === 0) {
+                                currentChoices.push("");
+                            }
+                            
+                            next[idx].choices = currentChoices;
+                            
+                            // Корректируем min/max при удалении варианта
+                            if (next[idx].type === "multiple") {
+                                const choicesCount = currentChoices.filter(c => c.trim() !== "").length;
+                                const maxLimit = Math.max(1, choicesCount);
+                                
+                                // Ограничиваем min и max количеством вариантов
+                                if (next[idx].min > maxLimit) {
+                                    next[idx].min = maxLimit;
+                                }
+                                if (next[idx].max > maxLimit) {
+                                    next[idx].max = maxLimit;
+                                }
+                                // Убеждаемся, что min не больше max
+                                if (next[idx].min > next[idx].max) {
+                                    next[idx].max = next[idx].min;
+                                }
+                            }
+                            
+                            questions = next;
+                            renderQuestions();
+                        });
+                        group.appendChild(btn);
+                    }
+                    choiceList.appendChild(group);
+                });
+
+                const addChoiceBtn = document.createElement("button");
+                addChoiceBtn.type = "button";
+                addChoiceBtn.className = "btn btn-sm btn-outline-secondary";
+                addChoiceBtn.textContent = "Добавить вариант";
+                addChoiceBtn.addEventListener("click", () => {
+                    const next = [...questions];
+                    const currentChoices = [...next[idx].choices];
+                    
+                    // Просто добавляем новый пустой вариант
+                    // Нормализация при рендеринге позаботится о пустых в середине
+                    currentChoices.push("");
+                    
+                    next[idx].choices = currentChoices;
+                    questions = next;
+                    renderQuestions();
+                });
+                choiceList.appendChild(addChoiceBtn);
+
+                card.appendChild(choiceList);
+                questionsContainer.appendChild(card);
+            });
+        }
+
+        function renderParticipants() {
+            participantsTableBody.innerHTML = "";
+            participants.forEach((p, idx) => {
+                const row = document.createElement("tr");
+
+                const numCell = document.createElement("td");
+                numCell.textContent = idx + 1;
+                row.appendChild(numCell);
+
+                const nameCell = document.createElement("td");
+                nameCell.innerHTML = `<input type="text" class="form-control" placeholder="Имя" value="${p.name || ""}">`;
+                nameCell.querySelector("input").addEventListener("input", (e) => {
+                    participants[idx].name = e.target.value;
+                });
+                row.appendChild(nameCell);
+
+                const emailCell = document.createElement("td");
+                emailCell.innerHTML = `<input type="email" class="form-control" placeholder="email@example.com" value="${p.email || ""}">`;
+                emailCell.querySelector("input").addEventListener("input", (e) => {
+                    participants[idx].email = e.target.value;
+                });
+                row.appendChild(emailCell);
+
+                const actionsCell = document.createElement("td");
+                actionsCell.className = "text-end";
+                const deleteBtn = document.createElement("button");
+                deleteBtn.type = "button";
+                deleteBtn.className = "btn btn-sm btn-outline-danger";
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteBtn.addEventListener("click", () => {
+                    participants = participants.filter((_, i) => i !== idx);
+                    renderParticipants();
+                });
+                actionsCell.appendChild(deleteBtn);
+                row.appendChild(actionsCell);
+
+                participantsTableBody.appendChild(row);
+            });
+        }
+
+        function parseParticipantsFile(text) {
+            return text
+                .replace(/\r/g, "")
+                .split("\n")
+                .map((line) => line.split(","))
+                .map(([name = "", email = ""]) => ({ name: name.trim(), email: email.trim() }))
+                .filter((item) => item.email);
+        }
+
+        document.getElementById("participantsFile").addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                participants = parseParticipantsFile(evt.target.result);
+                renderParticipants();
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById("addParticipantBtn").addEventListener("click", () => {
+            participants.push({ name: "", email: "" });
+            renderParticipants();
+        });
+
+        document.getElementById("addQuestionBtn").addEventListener("click", () => {
+            questions.push({ question: "", choices: ["", ""], type: "question", min: 1, max: 1 });
+            renderQuestions();
+        });
+
+        formEl.addEventListener("submit", () => {
+            // Normalize data before submit
+            const normalizedQuestions = questions.map((q) => ({
+                question: q.question || "",
+                type: q.type === "multiple" ? "multiple" : "question",
+                min: q.type === "multiple" ? Math.max(0, Number(q.min) || 0) : 1,
+                max: q.type === "multiple" ? Math.max(1, Number(q.max) || 1) : 1,
+                choices: (q.choices || []).filter((c) => c && c.trim()),
+            }));
+            questionsInput.value = JSON.stringify(normalizedQuestions);
+            participantsInput.value = JSON.stringify(
+                (participants || []).map((p) => ({
+                    name: p.name || "",
+                    email: (p.email || "").toLowerCase(),
+                }))
+            );
+        });
+
+        renderQuestions();
+        renderParticipants();
+    })();
+</script>
+{% endblock %}
+

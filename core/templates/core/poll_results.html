@@ -1,0 +1,105 @@
+{% if questions_with_results %}
+<div class="card shadow-sm mt-4 mb-2">
+    <div class="card-body">
+        <h2 class="h5 mb-4">Результаты голосования</h2>
+        
+        {% for question_data in questions_with_results %}
+        <div class="mb-2 {% if not forloop.last %}border-bottom pb-4{% endif %}">
+            <h3 class="h6 mb-3 fw-semibold">{{ question_data.question.text }}</h3>
+            <div class="table-responsive">
+                <table class="table table-hover table-striped">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 70%;">Вариант ответа</th>
+                            <th scope="col" class="text-center" style="width: 30%;">Количество голосов</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for choice_data in question_data.choices %}
+                        <tr>
+                            <td>{{ choice_data.choice.choice }}</td>
+                            <td class="text-center fw-semibold">{{ choice_data.vote_count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center text-muted py-3">
+                                Варианты ответа не найдены
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Collapse элемент "Участники" -->
+        <div class="mt-4 pt-4 border-top">
+            <button 
+                class="btn btn-link text-decoration-none p-0 d-flex align-items-center justify-content-start gap-2 w-100 text-start"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#participantsCollapse"
+                aria-expanded="false"
+                aria-controls="participantsCollapse"
+                style="font-size: 1rem; font-weight: 600; color: inherit;"
+            >
+                
+                <i class="bi bi-chevron-down collapse-icon" style="transition: transform 0.3s ease;"></i>
+                <span>Участники</span>
+            </button>
+            
+            <div class="collapse mt-3" id="participantsCollapse">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 70%;">ФИО участника</th>
+                                <th scope="col" class="text-center" style="width: 30%;">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for participant in poll.members.all %}
+                            <tr>
+                                <td>{{ participant.name }}</td>
+                                <td class="text-center">
+                                    {% if participant.is_voted %}
+                                        <span class="badge bg-success">Проголосовал</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Не голосовал</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center text-muted py-3">
+                                    Участники не найдены
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+(function() {
+    // Обработка иконки chevron при открытии/закрытии collapse
+    const collapseElement = document.getElementById('participantsCollapse');
+    const collapseIcon = document.querySelector('[data-bs-target="#participantsCollapse"] .collapse-icon');
+    
+    if (collapseElement && collapseIcon) {
+        collapseElement.addEventListener('show.bs.collapse', function() {
+            collapseIcon.style.transform = 'rotate(180deg)';
+        });
+        
+        collapseElement.addEventListener('hide.bs.collapse', function() {
+            collapseIcon.style.transform = 'rotate(0deg)';
+        });
+    }
+})();
+</script>
