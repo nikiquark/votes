@@ -8,7 +8,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.http import HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponseBadRequest, JsonResponse, HttpResponse
+from django.template.loader import render_to_string
 from django.shortcuts import redirect
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -487,6 +488,71 @@ class EndPollView(LoginRequiredMixin, TemplateView):
             "ok": True,
             "time_end": poll.time_end.isoformat()
         })
+
+
+class DownloadParticipantsView(LoginRequiredMixin, TemplateView):
+    """
+    Генерирует HTML файл со списком участников опроса.
+    Доступ только к опросам текущего пользователя в выбранной организации.
+    """
+    template_name = "core/votes.html"
+    login_url = reverse_lazy("core:login")
+
+    def get_organization_user(self):
+        """Получает OrganizationUser для текущего пользователя и выбранной организации."""
+        org_user_qs = OrganizationUser.objects.select_related("organization").filter(
+            user=self.request.user
+        )
+        current_org_id = self.request.session.get("current_org_id")
+
+        org_user = None
+        if current_org_id:
+            org_user = org_user_qs.filter(organization_id=current_org_id).first()
+
+        if not org_user:
+            org_user = org_user_qs.first()
+
+        if not org_user:
+            logout(self.request)
+            raise PermissionDenied("Организация для пользователя не найдена")
+
+        return org_user
+
+    def get(self, request, *args, **kwargs):
+        poll_id = kwargs.get("pk")
+        organization_user = self.get_organization_user()
+        
+        poll = get_object_or_404(
+            Poll.objects.filter(creator=organization_user).prefetch_related('members'),
+            pk=poll_id
+        )
+        
+        # Получаем участников опроса
+        participants = poll.members.all().order_by('name', 'email')
+        
+        # Формируем полный URL для ссылок
+        # Если SITE_NAME уже содержит протокол, используем его, иначе добавляем https://
+        site_name = settings.SITE_NAME
+        if not site_name.startswith(('http://', 'https://')):
+            # Определяем протокол на основе запроса
+            protocol = 'https' if request.is_secure() else 'http'
+            site_name = f"{protocol}://{site_name}"
+        
+        # Формируем контекст
+        context = {
+            'poll': poll,
+            'participants': participants,
+            'SITE_NAME': site_name,
+        }
+        
+        # Рендерим HTML
+        html_content = render_to_string(self.template_name, context, request=request)
+        
+        # Создаем HTTP ответ с файлом
+        response = HttpResponse(html_content, content_type='text/html; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="votes.html"'
+        
+        return response
 
 
 def logout_view(request):

@@ -11,6 +11,7 @@ from .views import (
     SelectOrganizationView,
     StartPollView,
     EndPollView,
+    DownloadParticipantsView,
     VoteView,
     logout_view,
 )
@@ -26,6 +27,7 @@ urlpatterns = [
     path("history/<int:pk>/", HistoryDetailView.as_view(), name="history_detail"),
     path("history/<int:pk>/start/", StartPollView.as_view(), name="start_poll"),
     path("history/<int:pk>/end/", EndPollView.as_view(), name="end_poll"),
+    path("history/<int:pk>/download/", DownloadParticipantsView.as_view(), name="download_participants"),
     path("select-organization/", SelectOrganizationView.as_view(), name="select_organization"),
     path("password-change/", PasswordChangeView.as_view(), name="password_change"),
     path("logout/", logout_view, name="logout"),

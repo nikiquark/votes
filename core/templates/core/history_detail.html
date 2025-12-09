@@ -44,6 +44,13 @@
                 >
                     Закончить голосование
                 </button>
+                <a 
+                    href="{% url 'core:download_participants' poll.pk %}" 
+                    class="btn btn-outline-secondary"
+                    download
+                >
+                    <i class="bi bi-download"></i> Скачать список
+                </a>
             </div>
         </div>
 
