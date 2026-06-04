@@ -1,8 +1,12 @@
+import logging
 import smtplib
 import re
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
 
 def send_to_user(to, name, title, url):
     body = f"""\
@@ -61,7 +65,14 @@ def send_email(to, title, text):
     msg.attach(part1)
     msg.attach(part2)
 
-    # Set up the SMTP server
-    server = smtplib.SMTP(settings.EMAIL_HOST)
-    server.sendmail(email, to, msg.as_string())
-    server.quit()
+    try:
+        server = smtplib.SMTP(settings.EMAIL_HOST)
+        server.sendmail(email, to, msg.as_string())
+        server.quit()
+        logger.info("Email sent to %s", to)
+    except smtplib.SMTPException as e:
+        logger.exception("SMTP error sending email to %s: %s", to, e)
+        raise
+    except OSError as e:
+        logger.exception("Network error sending email to %s: %s", to, e)
+        raise

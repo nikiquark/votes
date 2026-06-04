@@ -1,5 +1,8 @@
 import json
+import logging
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.contrib import messages
@@ -432,11 +435,8 @@ class StartPollView(LoginRequiredMixin, TemplateView):
                     title=poll.title,
                     url=vote_url
                 )
-            except Exception as e:
-                # Логируем ошибку, но не прерываем процесс
-                # В production можно использовать logging
-                if settings.DEBUG:
-                    print(f"Ошибка отправки письма участнику {poll_user.email}: {e}")
+            except Exception:
+                logger.exception("Failed to send email to %s for poll %s", poll_user.email, poll.pk)
         
         messages.success(request, "Голосование успешно начато")
         
