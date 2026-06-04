@@ -10,8 +10,9 @@
                 <table class="table table-hover table-striped">
                     <thead class="table-light">
                         <tr>
-                            <th scope="col" style="width: 70%;">Вариант ответа</th>
-                            <th scope="col" class="text-center" style="width: 30%;">Количество голосов</th>
+                            <th scope="col">Вариант ответа</th>
+                            <th scope="col" class="text-center" style="width: 130px;">Голосов</th>
+                            <th scope="col" class="text-center" style="width: 100px;">%</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -19,6 +20,7 @@
                         <tr>
                             <td>{{ choice_data.choice.choice }}</td>
                             <td class="text-center fw-semibold">{{ choice_data.vote_count }}</td>
+                            <td class="text-center text-muted">{{ choice_data.percentage }}%</td>
                         </tr>
                         {% empty %}
                         <tr>

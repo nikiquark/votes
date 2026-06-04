@@ -15,6 +15,7 @@ from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
+from django.views import View
 from django.views.generic import FormView, TemplateView, ListView, DetailView
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404
@@ -31,19 +32,24 @@ def calculate_poll_results(poll):
     """
     if not poll or not poll.time_end:
         return None
-    
+
+    voted_count = poll.members.filter(is_voted=True).count()
+
     questions_with_results = []
     for question in poll.questions.all().prefetch_related('choices'):
         choices_with_counts = []
         for choice in question.choices.all():
             vote_count = UserChoice.objects.filter(choice=choice).count()
+            percentage = round(vote_count / voted_count * 100, 1) if voted_count else 0
             choices_with_counts.append({
                 'choice': choice,
-                'vote_count': vote_count
+                'vote_count': vote_count,
+                'percentage': percentage,
             })
+        choices_with_counts.sort(key=lambda x: x['vote_count'], reverse=True)
         questions_with_results.append({
             'question': question,
-            'choices': choices_with_counts
+            'choices': choices_with_counts,
         })
     return questions_with_results
 
@@ -739,3 +745,89 @@ class PasswordChangeView(LoginRequiredMixin, FormView):
         update_session_auth_hash(self.request, form.user)
         messages.success(self.request, "Пароль успешно изменен.")
         return super().form_valid(form)
+
+
+def _get_org_poll(request, pk):
+    """Return the Poll with the given pk owned by the current session's org user, or 404."""
+    org_user_qs = OrganizationUser.objects.select_related("organization").filter(
+        user=request.user
+    )
+    current_org_id = request.session.get("current_org_id")
+    org_user = (
+        org_user_qs.filter(organization_id=current_org_id).first() if current_org_id else None
+    ) or org_user_qs.first()
+    if not org_user:
+        logout(request)
+        raise PermissionDenied("Организация для пользователя не найдена")
+    return get_object_or_404(Poll.objects.filter(creator=org_user), pk=pk)
+
+
+class AddParticipantView(LoginRequiredMixin, View):
+    """GET — participant statuses; POST — add a participant to a WAITING poll."""
+    login_url = reverse_lazy("core:login")
+
+    def get(self, request, pk):
+        poll = _get_org_poll(request, pk)
+        participants = list(poll.members.values("id", "is_voted"))
+        return JsonResponse({"ok": True, "participants": participants})
+
+    def post(self, request, pk):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат данных"}, status=400)
+        email = (data.get("email") or "").strip().lower()
+        name = (data.get("name") or "").strip()
+        if not email:
+            return JsonResponse({"error": "Email обязателен"}, status=400)
+        if PollUser.objects.filter(poll=poll, email=email).exists():
+            return JsonResponse({"error": "Участник с таким email уже добавлен"}, status=400)
+        participant = PollUser.objects.create(poll=poll, email=email, name=name or "Участник")
+        return JsonResponse({
+            "ok": True,
+            "id": participant.id,
+            "email": participant.email,
+            "name": participant.name,
+            "url": str(participant.url),
+        })
+
+
+class ParticipantDetailView(LoginRequiredMixin, View):
+    """PATCH — update; DELETE — remove a participant from a WAITING poll."""
+    login_url = reverse_lazy("core:login")
+
+    def patch(self, request, pk, participant_id):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        participant = get_object_or_404(PollUser, pk=participant_id, poll=poll)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат данных"}, status=400)
+        email = (data.get("email") or "").strip().lower()
+        name = (data.get("name") or "").strip()
+        if not email:
+            return JsonResponse({"error": "Email обязателен"}, status=400)
+        if PollUser.objects.filter(poll=poll, email=email).exclude(pk=participant_id).exists():
+            return JsonResponse({"error": "Участник с таким email уже существует"}, status=400)
+        participant.email = email
+        participant.name = name or "Участник"
+        participant.save()
+        return JsonResponse({
+            "ok": True,
+            "id": participant.id,
+            "email": participant.email,
+            "name": participant.name,
+        })
+
+    def delete(self, request, pk, participant_id):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        participant = get_object_or_404(PollUser, pk=participant_id, poll=poll)
+        participant.delete()
+        return JsonResponse({"ok": True})

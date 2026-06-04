@@ -57,37 +57,59 @@
         <!-- Таблица участников -->
         <div class="card shadow-sm">
             <div class="card-body">
-                <h3 class="h6 mb-3">Участники опроса</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h6 mb-0">Участники опроса</h3>
+                    {% if poll.time_start and not poll.time_end %}
+                    <span id="liveIndicator" class="text-success small d-flex align-items-center gap-1">
+                        <i class="bi bi-circle-fill live-dot"></i>Обновляется автоматически
+                    </span>
+                    {% endif %}
+                </div>
                 <div class="table-responsive">
-                    <table class="table table-hover">
+                    <table class="table table-hover" id="participantsTable">
                         <thead>
                             <tr>
                                 <th scope="col" style="width: 60px;">#</th>
                                 <th scope="col">Участник</th>
                                 <th scope="col">Email</th>
                                 <th scope="col">Ссылка</th>
+                                {% if not poll.time_start %}<th scope="col" style="width: 90px;"></th>{% endif %}
                             </tr>
                         </thead>
                         <tbody>
                             {% for participant in poll.members.all %}
-                            <tr class="{% if participant.is_voted %}table-success{% else %}table-warning{% endif %}">
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ participant.name }}</td>
-                                <td>{{ participant.email }}</td>
-                                <td>
-                                    <button 
-                                        type="button" 
-                                        class="btn btn-sm btn-outline-primary copy-link-btn" 
+                            <tr class="{% if participant.is_voted %}table-success{% else %}table-warning{% endif %}"
+                                data-participant-id="{{ participant.id }}"
+                                data-participant-name="{{ participant.name }}"
+                                data-participant-email="{{ participant.email }}"
+                                data-participant-url="{{ participant.url }}">
+                                <td class="row-number">{{ forloop.counter }}</td>
+                                <td class="cell-name">{{ participant.name }}</td>
+                                <td class="cell-email">{{ participant.email }}</td>
+                                <td class="cell-link">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-primary copy-link-btn"
                                         data-link="{{ SITE_NAME }}/{{ poll.url }}/{{ participant.url }}"
                                         title="Скопировать"
                                     >
                                         <i class="bi bi-clipboard"></i> Скопировать
                                     </button>
                                 </td>
+                                {% if not poll.time_start %}
+                                <td class="cell-actions text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-edit" title="Редактировать">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete" title="Удалить">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                                {% endif %}
                             </tr>
                             {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted py-4">
+                            <tr id="emptyRow">
+                                <td colspan="{% if not poll.time_start %}5{% else %}4{% endif %}" class="text-center text-muted py-4">
                                     Участники не найдены
                                 </td>
                             </tr>
@@ -95,6 +117,13 @@
                         </tbody>
                     </table>
                 </div>
+                {% if not poll.time_start %}
+                <div class="mt-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addParticipantBtn">
+                        <i class="bi bi-person-plus me-1"></i>Добавить участника
+                    </button>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -142,6 +171,14 @@
         min-width: 150px;
         white-space: nowrap;
     }
+    .live-dot {
+        font-size: 8px;
+        animation: live-pulse 2s ease-in-out infinite;
+    }
+    @keyframes live-pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.3; }
+    }
 </style>
 
 <!-- Модальное окно подтверждения начала голосования -->
@@ -183,216 +220,335 @@
 </div>
 
 <script>
-(function() {
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(";").shift();
-        return "";
+(function () {
+    function getCsrf() {
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : "";
     }
 
-    const pollId = {{ poll.pk }};
-    const csrfToken = getCookie("csrftoken");
+    // ── Start / End poll ────────────────────────────────────────────────────
 
-    // Обработка начала голосования
     const confirmStartBtn = document.getElementById("confirmStartBtn");
     if (confirmStartBtn) {
-        confirmStartBtn.addEventListener("click", function() {
+        confirmStartBtn.addEventListener("click", function () {
             const btn = this;
             btn.disabled = true;
             btn.textContent = "Обработка...";
-
             fetch("{% url 'core:start_poll' poll.pk %}", {
                 method: "POST",
-                headers: {
-                    "X-CSRFToken": csrfToken,
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Content-Type": "application/json",
-                },
+                headers: { "X-CSRFToken": getCsrf(), "Content-Type": "application/json" },
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Ошибка при обращении к серверу');
-                    }
-                    return response.json();
-                })
+                .then(r => { if (!r.ok) throw new Error(); return r.json(); })
                 .then(data => {
                     if (data.ok) {
-                        // Закрываем модальное окно
-                        const modalEl = document.getElementById("startVotingModal");
-                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                        if (modalInstance) {
-                            modalInstance.hide();
-                        }
-                        
-                        // Делаем кнопку неактивной
-                        const startBtn = document.getElementById("startVotingBtn");
-                        if (startBtn) {
-                            startBtn.disabled = true;
-                        }
-                        
-                        // Активируем кнопку "Закончить голосование"
-                        const endBtn = document.getElementById("endVotingBtn");
-                        if (endBtn) {
-                            endBtn.disabled = false;
-                        }
-                        
-                        // Перезагружаем страницу для обновления дат
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 500);
+                        bootstrap.Modal.getInstance(document.getElementById("startVotingModal"))?.hide();
+                        setTimeout(() => window.location.reload(), 400);
                     } else {
-                        if (window.djangoMessages && window.djangoMessages.showApiError) {
-                            window.djangoMessages.showApiError('Произошла ошибка при начале голосования. Пожалуйста, перезагрузите страницу.');
-                        }
-                        btn.disabled = false;
-                        btn.textContent = "Да";
+                        window.djangoMessages?.showApiError("Ошибка при начале голосования.");
+                        btn.disabled = false; btn.textContent = "Да";
                     }
                 })
-                .catch(error => {
-                    console.error(error);
-                    if (window.djangoMessages && window.djangoMessages.showApiError) {
-                        window.djangoMessages.showApiError('Произошла ошибка при начале голосования. Пожалуйста, перезагрузите страницу.');
-                    }
-                    btn.disabled = false;
-                    btn.textContent = "Да";
+                .catch(() => {
+                    window.djangoMessages?.showApiError("Ошибка при начале голосования.");
+                    btn.disabled = false; btn.textContent = "Да";
                 });
         });
     }
 
-    // Обработка окончания голосования
     const confirmEndBtn = document.getElementById("confirmEndBtn");
     if (confirmEndBtn) {
-        confirmEndBtn.addEventListener("click", function() {
+        confirmEndBtn.addEventListener("click", function () {
             const btn = this;
             btn.disabled = true;
             btn.textContent = "Обработка...";
-
             fetch("{% url 'core:end_poll' poll.pk %}", {
                 method: "POST",
-                headers: {
-                    "X-CSRFToken": csrfToken,
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Content-Type": "application/json",
-                },
+                headers: { "X-CSRFToken": getCsrf(), "Content-Type": "application/json" },
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Ошибка при обращении к серверу');
-                    }
-                    return response.json();
-                })
+                .then(r => { if (!r.ok) throw new Error(); return r.json(); })
                 .then(data => {
                     if (data.ok) {
-                        // Закрываем модальное окно
-                        const modalEl = document.getElementById("endVotingModal");
-                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
-                        if (modalInstance) {
-                            modalInstance.hide();
-                        }
-                        
-                        // Делаем кнопку неактивной
-                        const endBtn = document.getElementById("endVotingBtn");
-                        if (endBtn) {
-                            endBtn.disabled = true;
-                        }
-                        
-                        // Перезагружаем страницу для обновления дат
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 500);
+                        bootstrap.Modal.getInstance(document.getElementById("endVotingModal"))?.hide();
+                        setTimeout(() => window.location.reload(), 400);
                     } else {
-                        if (window.djangoMessages && window.djangoMessages.showApiError) {
-                            window.djangoMessages.showApiError('Произошла ошибка при окончании голосования. Пожалуйста, перезагрузите страницу.');
-                        }
-                        btn.disabled = false;
-                        btn.textContent = "Да";
+                        window.djangoMessages?.showApiError("Ошибка при окончании голосования.");
+                        btn.disabled = false; btn.textContent = "Да";
                     }
                 })
-                .catch(error => {
-                    console.error(error);
-                    if (window.djangoMessages && window.djangoMessages.showApiError) {
-                        window.djangoMessages.showApiError('Произошла ошибка при окончании голосования. Пожалуйста, перезагрузите страницу.');
-                    }
-                    btn.disabled = false;
-                    btn.textContent = "Да";
+                .catch(() => {
+                    window.djangoMessages?.showApiError("Ошибка при окончании голосования.");
+                    btn.disabled = false; btn.textContent = "Да";
                 });
         });
     }
 
-    // Сброс состояния кнопок в модальных окнах при закрытии
-    const startModal = document.getElementById("startVotingModal");
-    if (startModal) {
-        startModal.addEventListener("hidden.bs.modal", function() {
-            const btn = document.getElementById("confirmStartBtn");
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = "Да";
-            }
-        });
-    }
+    document.getElementById("startVotingModal")?.addEventListener("hidden.bs.modal", () => {
+        const b = document.getElementById("confirmStartBtn");
+        if (b) { b.disabled = false; b.textContent = "Да"; }
+    });
+    document.getElementById("endVotingModal")?.addEventListener("hidden.bs.modal", () => {
+        const b = document.getElementById("confirmEndBtn");
+        if (b) { b.disabled = false; b.textContent = "Да"; }
+    });
 
-    const endModal = document.getElementById("endVotingModal");
-    if (endModal) {
-        endModal.addEventListener("hidden.bs.modal", function() {
-            const btn = document.getElementById("confirmEndBtn");
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = "Да";
-            }
-        });
-    }
+    // ── Copy link (event delegation — works for dynamically added rows too) ─
 
-    // Обработка копирования ссылок в буфер обмена
-    const copyLinkButtons = document.querySelectorAll(".copy-link-btn");
-    copyLinkButtons.forEach(function(btn) {
-        btn.addEventListener("click", function() {
-            const link = this.getAttribute("data-link");
-            const originalText = this.innerHTML;
-            
-            // Копируем ссылку в буфер обмена
-            navigator.clipboard.writeText(link).then(function() {
-                // Временно меняем текст кнопки на подтверждение
-                btn.innerHTML = '<i class="bi bi-check"></i> Скопировано!';
-                btn.classList.remove("btn-outline-primary");
-                btn.classList.add("btn-success");
-                
-                // Возвращаем исходный вид через 2 секунды
-                setTimeout(function() {
-                    btn.innerHTML = originalText;
-                    btn.classList.remove("btn-success");
-                    btn.classList.add("btn-outline-primary");
-                }, 2000);
-            }).catch(function(err) {
-                console.error("Ошибка при копировании:", err);
-                // Fallback для старых браузеров
-                const textArea = document.createElement("textarea");
-                textArea.value = link;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = "0";
-                document.body.appendChild(textArea);
-                textArea.select();
-                try {
-                    document.execCommand("copy");
-                    btn.innerHTML = '<i class="bi bi-check"></i> Скопировано!';
-                    btn.classList.remove("btn-outline-primary");
-                    btn.classList.add("btn-success");
-                    setTimeout(function() {
-                        btn.innerHTML = originalText;
-                        btn.classList.remove("btn-success");
-                        btn.classList.add("btn-outline-primary");
-                    }, 2000);
-                } catch (err) {
-                    console.error("Ошибка при копировании (fallback):", err);
-                    if (window.djangoMessages && window.djangoMessages.showApiError) {
-                        window.djangoMessages.showApiError('Не удалось скопировать ссылку');
-                    }
-                }
-                document.body.removeChild(textArea);
-            });
+    document.getElementById("participantsTable")?.addEventListener("click", function (e) {
+        const btn = e.target.closest(".copy-link-btn");
+        if (!btn) return;
+        const link = btn.dataset.link;
+        const orig = btn.innerHTML;
+        const done = () => {
+            btn.innerHTML = '<i class="bi bi-check"></i> Скопировано!';
+            btn.classList.replace("btn-outline-primary", "btn-success");
+            setTimeout(() => { btn.innerHTML = orig; btn.classList.replace("btn-success", "btn-outline-primary"); }, 2000);
+        };
+        navigator.clipboard.writeText(link).then(done).catch(() => {
+            const ta = Object.assign(document.createElement("textarea"), { value: link });
+            ta.style.cssText = "position:fixed;opacity:0";
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand("copy"); done(); } catch { window.djangoMessages?.showApiError("Не удалось скопировать ссылку"); }
+            document.body.removeChild(ta);
         });
     });
 })();
 </script>
+
+{% if not poll.time_start %}
+<script>
+(function () {
+    const SITE_NAME = "{{ SITE_NAME }}";
+    const POLL_URL  = "{{ poll.url }}";
+    const ADD_URL   = "{% url 'core:add_participant' poll.pk %}";  // ends with /
+
+    function getCsrf() {
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : "";
+    }
+
+    function showError(msg) {
+        window.djangoMessages?.showApiError(msg);
+    }
+
+    function escapeAttr(s) {
+        return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function voteLink(participantUrl) {
+        return `${SITE_NAME}/${POLL_URL}/${participantUrl}`;
+    }
+
+    function updateNumbers() {
+        document.querySelectorAll("#participantsTable tbody tr[data-participant-id]").forEach((row, i) => {
+            row.querySelector(".row-number").textContent = i + 1;
+        });
+    }
+
+    function showEmptyIfNeeded() {
+        const tbody = document.querySelector("#participantsTable tbody");
+        if (!tbody.querySelector("tr[data-participant-id]") && !tbody.querySelector("#emptyRow")) {
+            const colspan = 5;
+            tbody.insertAdjacentHTML("beforeend",
+                `<tr id="emptyRow"><td colspan="${colspan}" class="text-center text-muted py-4">Участники не найдены</td></tr>`);
+        }
+    }
+
+    // ── Row rendering helpers ──────────────────────────────────────────────
+
+    function setViewMode(row) {
+        const { participantName: name, participantEmail: email, participantUrl: url } = row.dataset;
+        row.querySelector(".cell-name").textContent = name;
+        row.querySelector(".cell-email").textContent = email;
+        row.querySelector(".cell-link").innerHTML =
+            `<button type="button" class="btn btn-sm btn-outline-primary copy-link-btn"
+                data-link="${escapeAttr(voteLink(url))}" title="Скопировать">
+                <i class="bi bi-clipboard"></i> Скопировать
+            </button>`;
+        row.querySelector(".cell-actions").innerHTML =
+            `<button type="button" class="btn btn-sm btn-outline-secondary btn-edit" title="Редактировать"><i class="bi bi-pencil"></i></button>
+             <button type="button" class="btn btn-sm btn-outline-danger btn-delete" title="Удалить"><i class="bi bi-trash"></i></button>`;
+        row.classList.remove("table-danger");
+        attachRowHandlers(row);
+    }
+
+    function setEditMode(row, onCancel) {
+        const { participantName: name, participantEmail: email } = row.dataset;
+        row.querySelector(".cell-name").innerHTML =
+            `<input type="text" class="form-control form-control-sm" value="${escapeAttr(name)}" placeholder="Имя">`;
+        row.querySelector(".cell-email").innerHTML =
+            `<input type="email" class="form-control form-control-sm" value="${escapeAttr(email)}" placeholder="email@example.com">`;
+        row.querySelector(".cell-link").innerHTML = "";
+        row.querySelector(".cell-actions").innerHTML =
+            `<button type="button" class="btn btn-sm btn-outline-success btn-save" title="Сохранить"><i class="bi bi-floppy"></i></button>
+             <button type="button" class="btn btn-sm btn-outline-secondary btn-cancel" title="Отмена"><i class="bi bi-x-lg"></i></button>`;
+
+        const nameInput  = row.querySelector(".cell-name input");
+        const emailInput = row.querySelector(".cell-email input");
+        nameInput.focus();
+        nameInput.select();
+
+        row.querySelector(".btn-save").addEventListener("click", () => saveRow(row));
+        row.querySelector(".btn-cancel").addEventListener("click", onCancel);
+        [nameInput, emailInput].forEach(inp => inp.addEventListener("keydown", e => {
+            if (e.key === "Enter") saveRow(row);
+            if (e.key === "Escape") onCancel();
+        }));
+    }
+
+    function setDeleteConfirm(row) {
+        row.classList.add("table-danger");
+        row.querySelector(".cell-actions").innerHTML =
+            `<button type="button" class="btn btn-sm btn-danger btn-confirm-delete" title="Подтвердить"><i class="bi bi-check-lg"></i></button>
+             <button type="button" class="btn btn-sm btn-outline-secondary btn-cancel-delete" title="Отмена"><i class="bi bi-x-lg"></i></button>`;
+        row.querySelector(".btn-confirm-delete").addEventListener("click", () => deleteRow(row));
+        row.querySelector(".btn-cancel-delete").addEventListener("click", () => setViewMode(row));
+    }
+
+    // ── API calls ──────────────────────────────────────────────────────────
+
+    async function saveRow(row) {
+        const id    = row.dataset.participantId;
+        const email = row.querySelector(".cell-email input").value.trim().toLowerCase();
+        const name  = row.querySelector(".cell-name input").value.trim();
+
+        const emailInput = row.querySelector(".cell-email input");
+        emailInput.classList.remove("is-invalid");
+        if (!email) { emailInput.classList.add("is-invalid"); emailInput.focus(); return; }
+
+        const saveBtn = row.querySelector(".btn-save");
+        saveBtn.disabled = true;
+
+        const isNew = !id;
+        try {
+            const resp = await fetch(isNew ? ADD_URL : `${ADD_URL}${id}/`, {
+                method: isNew ? "POST" : "PATCH",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+                body: JSON.stringify({ name, email }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+                showError(data.error || "Ошибка сохранения");
+                saveBtn.disabled = false;
+                return;
+            }
+            row.dataset.participantId    = data.id;
+            row.dataset.participantName  = data.name;
+            row.dataset.participantEmail = data.email;
+            if (data.url) row.dataset.participantUrl = data.url;
+
+            document.getElementById("emptyRow")?.remove();
+            setViewMode(row);
+        } catch {
+            showError("Ошибка соединения");
+            saveBtn.disabled = false;
+        }
+    }
+
+    async function deleteRow(row) {
+        const id = row.dataset.participantId;
+        try {
+            const resp = await fetch(`${ADD_URL}${id}/`, {
+                method: "DELETE",
+                headers: { "X-CSRFToken": getCsrf() },
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+                showError(data.error || "Ошибка удаления");
+                setViewMode(row);
+                return;
+            }
+            row.remove();
+            updateNumbers();
+            showEmptyIfNeeded();
+        } catch {
+            showError("Ошибка соединения");
+            setViewMode(row);
+        }
+    }
+
+    function addNewRow() {
+        document.getElementById("emptyRow")?.remove();
+        const tbody = document.querySelector("#participantsTable tbody");
+        const row = document.createElement("tr");
+        row.className = "table-warning";
+        Object.assign(row.dataset, { participantId: "", participantName: "", participantEmail: "", participantUrl: "" });
+        row.innerHTML =
+            `<td class="row-number"></td>
+             <td class="cell-name"></td>
+             <td class="cell-email"></td>
+             <td class="cell-link"></td>
+             <td class="cell-actions text-end text-nowrap"></td>`;
+        tbody.appendChild(row);
+        updateNumbers();
+        setEditMode(row, () => { row.remove(); updateNumbers(); showEmptyIfNeeded(); });
+    }
+
+    // ── Attach handlers ────────────────────────────────────────────────────
+
+    function attachRowHandlers(row) {
+        row.querySelector(".btn-edit")?.addEventListener("click", () =>
+            setEditMode(row, () => setViewMode(row)));
+        row.querySelector(".btn-delete")?.addEventListener("click", () =>
+            setDeleteConfirm(row));
+    }
+
+    document.querySelectorAll("#participantsTable tbody tr[data-participant-id]")
+        .forEach(attachRowHandlers);
+
+    document.getElementById("addParticipantBtn")
+        ?.addEventListener("click", addNewRow);
+})();
+</script>
+{% endif %}
+
+{% if poll.time_start and not poll.time_end %}
+<script>
+(function () {
+    const STATUS_URL = "{% url 'core:add_participant' poll.pk %}";
+    let timerId = null;
+
+    async function refresh() {
+        try {
+            const resp = await fetch(STATUS_URL);
+            if (!resp.ok) return;
+            const { ok, participants } = await resp.json();
+            if (!ok || !participants) return;
+
+            let allVoted = participants.length > 0;
+            participants.forEach(({ id, is_voted }) => {
+                const row = document.querySelector(`#participantsTable tr[data-participant-id="${id}"]`);
+                if (!row) return;
+                if (is_voted) {
+                    row.classList.replace("table-warning", "table-success");
+                } else {
+                    allVoted = false;
+                }
+            });
+
+            if (allVoted) stop();
+        } catch { /* ignore network errors */ }
+    }
+
+    function start() {
+        if (!timerId) timerId = setInterval(refresh, 5000);
+    }
+
+    function stop() {
+        clearInterval(timerId);
+        timerId = null;
+        const el = document.getElementById("liveIndicator");
+        if (el) el.style.display = "none";
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) { clearInterval(timerId); timerId = null; }
+        else start();
+    });
+
+    start();
+})();
+</script>
+{% endif %}
 {% endblock %}
 

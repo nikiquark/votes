@@ -1,12 +1,14 @@
 from django.urls import path
 
 from .views import (
+    AddParticipantView,
     CreatePollView,
     HistoryView,
     HistoryDetailView,
     LandingView,
     MyProfileView,
     OrganizationLoginView,
+    ParticipantDetailView,
     PasswordChangeView,
     SelectOrganizationView,
     StartPollView,
@@ -28,6 +30,8 @@ urlpatterns = [
     path("history/<int:pk>/start/", StartPollView.as_view(), name="start_poll"),
     path("history/<int:pk>/end/", EndPollView.as_view(), name="end_poll"),
     path("history/<int:pk>/download/", DownloadParticipantsView.as_view(), name="download_participants"),
+    path("history/<int:pk>/participants/", AddParticipantView.as_view(), name="add_participant"),
+    path("history/<int:pk>/participants/<int:participant_id>/", ParticipantDetailView.as_view(), name="participant_detail"),
     path("select-organization/", SelectOrganizationView.as_view(), name="select_organization"),
     path("password-change/", PasswordChangeView.as_view(), name="password_change"),
     path("logout/", logout_view, name="logout"),
