@@ -14,7 +14,28 @@
         <!-- Название опроса -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
-                <h1 class="h4 mb-0">{{ poll.title }}</h1>
+                <div id="pollTitleView" class="d-flex align-items-center gap-2">
+                    <h1 class="h4 mb-0" id="pollTitleText">{{ poll.title }}</h1>
+                    {% if not poll.time_start %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="editTitleBtn" title="Редактировать название">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    {% endif %}
+                </div>
+                {% if not poll.time_start %}
+                <div id="pollTitleEdit" class="d-none">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="pollTitleInput" value="{{ poll.title }}">
+                        <button type="button" class="btn btn-outline-success" id="saveTitleBtn" title="Сохранить">
+                            <i class="bi bi-floppy"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="cancelTitleBtn" title="Отмена">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div id="pollTitleError" class="text-danger small mt-1 d-none"></div>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -269,6 +290,72 @@
         const m = document.cookie.match(/csrftoken=([^;]+)/);
         return m ? m[1] : "";
     }
+
+    // ── Edit poll title ─────────────────────────────────────────────────────
+
+    const editTitleBtn  = document.getElementById("editTitleBtn");
+    const titleView     = document.getElementById("pollTitleView");
+    const titleEdit     = document.getElementById("pollTitleEdit");
+    const titleText     = document.getElementById("pollTitleText");
+    const titleInput    = document.getElementById("pollTitleInput");
+    const saveTitleBtn  = document.getElementById("saveTitleBtn");
+    const cancelTitleBtn = document.getElementById("cancelTitleBtn");
+    const titleError    = document.getElementById("pollTitleError");
+
+    function showTitleEdit() {
+        titleInput.value = titleText.textContent.trim();
+        titleError.classList.add("d-none");
+        titleError.textContent = "";
+        titleView.classList.add("d-none");
+        titleEdit.classList.remove("d-none");
+        titleInput.focus();
+        titleInput.select();
+    }
+
+    function showTitleView() {
+        titleEdit.classList.add("d-none");
+        titleView.classList.remove("d-none");
+    }
+
+    async function saveTitle() {
+        const title = titleInput.value.trim();
+        if (!title) {
+            titleError.textContent = "Название опроса обязательно";
+            titleError.classList.remove("d-none");
+            titleInput.focus();
+            return;
+        }
+        saveTitleBtn.disabled = true;
+        try {
+            const resp = await fetch("{% url 'core:poll_title' poll.pk %}", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+                body: JSON.stringify({ title }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) {
+                titleError.textContent = data.error || "Ошибка сохранения";
+                titleError.classList.remove("d-none");
+                saveTitleBtn.disabled = false;
+                return;
+            }
+            titleText.textContent = data.title;
+            document.title = data.title;
+            showTitleView();
+        } catch {
+            titleError.textContent = "Ошибка соединения";
+            titleError.classList.remove("d-none");
+        }
+        saveTitleBtn.disabled = false;
+    }
+
+    editTitleBtn?.addEventListener("click", showTitleEdit);
+    cancelTitleBtn?.addEventListener("click", showTitleView);
+    saveTitleBtn?.addEventListener("click", saveTitle);
+    titleInput?.addEventListener("keydown", e => {
+        if (e.key === "Enter") saveTitle();
+        if (e.key === "Escape") showTitleView();
+    });
 
     // ── Start / End poll ────────────────────────────────────────────────────
 

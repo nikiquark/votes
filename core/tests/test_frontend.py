@@ -96,6 +96,49 @@ class PollAdminButtonsTests(SeleniumTestCase):
     def _open_detail(self):
         self.open("core:history_detail", kwargs={"pk": self.poll.pk})
 
+    # ── Редактирование названия опроса ──────────────────────────────────────
+
+    def test_edit_poll_title_via_ui(self):
+        self._open_detail()
+        self.wait().until(EC.element_to_be_clickable((By.ID, "editTitleBtn"))).click()
+
+        title_input = self.wait().until(EC.visibility_of_element_located((By.ID, "pollTitleInput")))
+        title_input.clear()
+        title_input.send_keys("Обновлённое название опроса")
+        self.driver.find_element(By.ID, "saveTitleBtn").click()
+
+        self.wait().until(lambda d: "Обновлённое название опроса" in d.find_element(By.ID, "pollTitleText").text)
+        self.assertTrue(self.driver.find_element(By.ID, "pollTitleEdit").get_attribute("class").find("d-none") != -1)
+        self.poll.refresh_from_db()
+        self.assertEqual(self.poll.title, "Обновлённое название опроса")
+
+    def test_edit_poll_title_empty_shows_error(self):
+        self._open_detail()
+        self.wait().until(EC.element_to_be_clickable((By.ID, "editTitleBtn"))).click()
+
+        title_input = self.wait().until(EC.visibility_of_element_located((By.ID, "pollTitleInput")))
+        title_input.clear()
+        self.driver.find_element(By.ID, "saveTitleBtn").click()
+
+        error = self.wait().until(EC.visibility_of_element_located((By.ID, "pollTitleError")))
+        self.assertIn("обязательно", error.text)
+        self.poll.refresh_from_db()
+        self.assertEqual(self.poll.title, "Опрос про кнопки")
+
+    def test_edit_poll_title_cancel_keeps_original(self):
+        self._open_detail()
+        self.wait().until(EC.element_to_be_clickable((By.ID, "editTitleBtn"))).click()
+
+        title_input = self.wait().until(EC.visibility_of_element_located((By.ID, "pollTitleInput")))
+        title_input.clear()
+        title_input.send_keys("Это название не сохранится")
+        self.driver.find_element(By.ID, "cancelTitleBtn").click()
+
+        self.wait().until(EC.invisibility_of_element_located((By.ID, "pollTitleEdit")))
+        self.assertEqual(self.driver.find_element(By.ID, "pollTitleText").text, "Опрос про кнопки")
+        self.poll.refresh_from_db()
+        self.assertEqual(self.poll.title, "Опрос про кнопки")
+
     # ── Старт / окончание голосования ───────────────────────────────────────
 
     def test_start_voting_button_opens_modal_and_starts_poll(self):

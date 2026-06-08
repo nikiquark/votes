@@ -257,6 +257,35 @@ class PollEditingRestrictionsTests(TestCase):
             self.client.post(reverse("core:start_poll", kwargs={"pk": self.poll.pk}))
         self.poll.refresh_from_db()
 
+    def test_title_can_be_edited_before_start_and_blocked_after(self):
+        title_url = reverse("core:poll_title", kwargs={"pk": self.poll.pk})
+
+        ok_response = self.client.patch(
+            title_url,
+            data=json.dumps({"title": "Новое название"}),
+            content_type="application/json",
+        )
+        self.assertEqual(ok_response.status_code, 200)
+        self.poll.refresh_from_db()
+        self.assertEqual(self.poll.title, "Новое название")
+
+        empty_response = self.client.patch(
+            title_url,
+            data=json.dumps({"title": "   "}),
+            content_type="application/json",
+        )
+        self.assertEqual(empty_response.status_code, 400)
+
+        self._start()
+        blocked_response = self.client.patch(
+            title_url,
+            data=json.dumps({"title": "Опять новое"}),
+            content_type="application/json",
+        )
+        self.assertEqual(blocked_response.status_code, 400)
+        self.poll.refresh_from_db()
+        self.assertEqual(self.poll.title, "Новое название")
+
     def test_question_crud_blocked_after_start(self):
         self._start()
         question_list_url = reverse("core:question_list", kwargs={"pk": self.poll.pk})

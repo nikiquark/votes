@@ -927,3 +927,25 @@ class QuestionDetailView(LoginRequiredMixin, View):
         question = get_object_or_404(Question, pk=question_id, poll=poll)
         question.delete()
         return JsonResponse({"ok": True})
+
+
+class PollTitleView(LoginRequiredMixin, View):
+    """PATCH — rename a WAITING poll."""
+    login_url = reverse_lazy("core:login")
+
+    def patch(self, request, pk):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат данных"}, status=400)
+
+        title = (data.get("title") or "").strip()
+        if not title:
+            return JsonResponse({"error": "Название опроса обязательно"}, status=400)
+
+        poll.title = title
+        poll.save(update_fields=["title"])
+        return JsonResponse({"ok": True, "title": poll.title})

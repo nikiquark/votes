@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir poetry
 
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root --no-ansi
+RUN poetry install --no-root --no-ansi --without dev
 
 COPY . .
 
