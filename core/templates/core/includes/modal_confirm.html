@@ -1,0 +1,37 @@
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmModalLabel">Подтверждение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" id="confirmModalBody">Вы уверены?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
+                <button type="button" class="btn btn-danger" id="confirmModalOkBtn">Да</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    window.showConfirmModal = function ({ title, body, btnText, btnClass, onConfirm }) {
+        const modal = document.getElementById("confirmModal");
+        document.getElementById("confirmModalLabel").textContent = title || "Подтверждение";
+        document.getElementById("confirmModalBody").textContent = body || "Вы уверены?";
+        const btn = document.getElementById("confirmModalOkBtn");
+        btn.textContent = btnText || "Да";
+        btn.className = "btn " + (btnClass || "btn-danger");
+        btn.onclick = function () {
+            bootstrap.Modal.getInstance(modal)?.hide();
+            onConfirm();
+        };
+        new bootstrap.Modal(modal).show();
+    };
+
+    document.getElementById("confirmModal")?.addEventListener("hidden.bs.modal", function () {
+        const btn = document.getElementById("confirmModalOkBtn");
+        if (btn) { btn.disabled = false; btn.textContent = "Да"; btn.className = "btn btn-danger"; }
+    });
+})();
+</script>

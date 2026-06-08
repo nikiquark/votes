@@ -831,3 +831,99 @@ class ParticipantDetailView(LoginRequiredMixin, View):
         participant = get_object_or_404(PollUser, pk=participant_id, poll=poll)
         participant.delete()
         return JsonResponse({"ok": True})
+
+
+class QuestionView(LoginRequiredMixin, View):
+    """POST — add a question to a WAITING poll."""
+    login_url = reverse_lazy("core:login")
+
+    def post(self, request, pk):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат данных"}, status=400)
+
+        text = (data.get("question") or "").strip()
+        q_type = data.get("type", "question")
+        choices_raw = [c.strip() for c in (data.get("choices") or []) if c and c.strip()]
+
+        if not text:
+            return JsonResponse({"error": "Текст вопроса обязателен"}, status=400)
+        if len(choices_raw) < 2:
+            return JsonResponse({"error": "Нужно минимум 2 варианта ответа"}, status=400)
+
+        q_min = max(0, int(data.get("min") or 0)) if q_type == "multiple" else 1
+        q_max = min(max(1, int(data.get("max") or 1)), len(choices_raw)) if q_type == "multiple" else 1
+
+        with transaction.atomic():
+            question = Question.objects.create(poll=poll, text=text, type=q_type, min=q_min, max=q_max)
+            for c in choices_raw:
+                Choice.objects.create(question=question, choice=c)
+
+        return JsonResponse({
+            "ok": True,
+            "id": question.id,
+            "text": question.text,
+            "type": question.type,
+            "min": question.min,
+            "max": question.max,
+            "choices": [{"id": c.id, "choice": c.choice} for c in question.choices.all()],
+        })
+
+
+class QuestionDetailView(LoginRequiredMixin, View):
+    """PATCH — update; DELETE — remove a question from a WAITING poll."""
+    login_url = reverse_lazy("core:login")
+
+    def patch(self, request, pk, question_id):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        question = get_object_or_404(Question, pk=question_id, poll=poll)
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат данных"}, status=400)
+
+        text = (data.get("question") or "").strip()
+        q_type = data.get("type", "question")
+        choices_raw = [c.strip() for c in (data.get("choices") or []) if c and c.strip()]
+
+        if not text:
+            return JsonResponse({"error": "Текст вопроса обязателен"}, status=400)
+        if len(choices_raw) < 2:
+            return JsonResponse({"error": "Нужно минимум 2 варианта ответа"}, status=400)
+
+        q_min = max(0, int(data.get("min") or 0)) if q_type == "multiple" else 1
+        q_max = min(max(1, int(data.get("max") or 1)), len(choices_raw)) if q_type == "multiple" else 1
+
+        with transaction.atomic():
+            question.text = text
+            question.type = q_type
+            question.min = q_min
+            question.max = q_max
+            question.save()
+            question.choices.all().delete()
+            for c in choices_raw:
+                Choice.objects.create(question=question, choice=c)
+
+        return JsonResponse({
+            "ok": True,
+            "id": question.id,
+            "text": question.text,
+            "type": question.type,
+            "min": question.min,
+            "max": question.max,
+            "choices": [{"id": c.id, "choice": c.choice} for c in question.choices.all()],
+        })
+
+    def delete(self, request, pk, question_id):
+        poll = _get_org_poll(request, pk)
+        if poll.time_start:
+            return JsonResponse({"error": "Голосование уже начато"}, status=400)
+        question = get_object_or_404(Question, pk=question_id, poll=poll)
+        question.delete()
+        return JsonResponse({"ok": True})

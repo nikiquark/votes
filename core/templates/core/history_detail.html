@@ -21,12 +21,10 @@
         <!-- Администрирование -->
         <div class="mb-3">
             <h2 class="h5 mb-3">Администрирование</h2>
-            
-            <!-- Кнопки управления -->
             <div class="d-flex gap-2 mb-4">
-                <button 
-                    type="button" 
-                    class="btn btn-primary" 
+                <button
+                    type="button"
+                    class="btn btn-primary"
                     id="startVotingBtn"
                     {% if poll.time_start %}disabled{% endif %}
                     data-bs-toggle="modal"
@@ -34,9 +32,9 @@
                 >
                     Начать голосование
                 </button>
-                <button 
-                    type="button" 
-                    class="btn btn-danger" 
+                <button
+                    type="button"
+                    class="btn btn-danger"
                     id="endVotingBtn"
                     {% if not poll.time_start or poll.time_end %}disabled{% endif %}
                     data-bs-toggle="modal"
@@ -44,8 +42,8 @@
                 >
                     Закончить голосование
                 </button>
-                <a 
-                    href="{% url 'core:download_participants' poll.pk %}" 
+                <a
+                    href="{% url 'core:download_participants' poll.pk %}"
                     class="btn btn-outline-secondary"
                     download
                 >
@@ -53,6 +51,56 @@
                 </a>
             </div>
         </div>
+
+        {% if not poll.time_start %}
+        <!-- Вопросы (только WAITING) -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="h6 mb-0">Вопросы</h3>
+                </div>
+                <div id="questionsContainer">
+                    {% for question in poll.questions.all %}
+                    <div class="border rounded p-3 mb-2 question-card"
+                         data-question-id="{{ question.id }}"
+                         data-question-type="{{ question.type }}"
+                         data-question-min="{{ question.min }}"
+                         data-question-max="{{ question.max }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1 me-3">
+                                <div class="text-muted small mb-1 question-number">Вопрос {{ forloop.counter }}</div>
+                                <div class="fw-semibold mb-2 question-text">{{ question.text }}</div>
+                                <div class="d-flex flex-wrap gap-1 question-choices">
+                                    {% for choice in question.choices.all %}
+                                    <span class="badge text-bg-light border">{{ choice.choice }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% if question.type == "multiple" %}
+                                <div class="text-muted small mt-1 question-minmax">Мультивыбор: от {{ question.min }} до {{ question.max }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-edit-question" title="Редактировать">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger btn-delete-question" title="Удалить">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div id="questionsEmpty" class="text-center text-muted py-3">Вопросы не добавлены</div>
+                    {% endfor %}
+                </div>
+                <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="addQuestionBtn">
+                        <i class="bi bi-plus-lg me-1"></i>Добавить вопрос
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Таблица участников -->
         <div class="card shadow-sm">
@@ -127,19 +175,15 @@
             </div>
         </div>
 
-        <!-- Информация о датах начала и конца опроса -->
+        <!-- Даты начала и конца -->
         {% if formatted_time_start or formatted_time_end %}
         <div class="card shadow-sm mt-4">
             <div class="card-body">
                 {% if formatted_time_start %}
-                <div class="mb-2">
-                    <strong>Начало:</strong> {{ formatted_time_start }}
-                </div>
+                <div class="mb-2"><strong>Начало:</strong> {{ formatted_time_start }}</div>
                 {% endif %}
                 {% if formatted_time_end %}
-                <div>
-                    <strong>Конец:</strong> {{ formatted_time_end }}
-                </div>
+                <div><strong>Конец:</strong> {{ formatted_time_end }}</div>
                 {% endif %}
             </div>
         </div>
@@ -151,37 +195,19 @@
 </div>
 
 <style>
-    .table-warning {
-        background-color: #ffe0b2 !important; /* желто-оранжевый */
-    }
-    .table-warning:hover {
-        background-color: #ffcc80 !important;
-    }
-    .table-success {
-        background-color: #c8e6c9 !important; /* зеленый */
-    }
-    .table-success:hover {
-        background-color: #a5d6a7 !important;
-    }
-    code {
-        font-size: 0.875rem;
-        color: #6c757d;
-    }
-    .copy-link-btn {
-        min-width: 150px;
-        white-space: nowrap;
-    }
-    .live-dot {
-        font-size: 8px;
-        animation: live-pulse 2s ease-in-out infinite;
-    }
-    @keyframes live-pulse {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0.3; }
-    }
+    .table-warning { background-color: #ffe0b2 !important; }
+    .table-warning:hover { background-color: #ffcc80 !important; }
+    .table-success { background-color: #c8e6c9 !important; }
+    .table-success:hover { background-color: #a5d6a7 !important; }
+    code { font-size: 0.875rem; color: #6c757d; }
+    .copy-link-btn { min-width: 150px; white-space: nowrap; }
+    .live-dot { font-size: 8px; animation: live-pulse 2s ease-in-out infinite; }
+    @keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 </style>
 
-<!-- Модальное окно подтверждения начала голосования -->
+{% include "core/includes/modal_confirm.html" %}
+
+<!-- Подтверждение начала голосования -->
 <div class="modal fade" id="startVotingModal" tabindex="-1" aria-labelledby="startVotingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -189,9 +215,7 @@
                 <h5 class="modal-title" id="startVotingModalLabel">Подтверждение</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
-            <div class="modal-body">
-                Вы уверены, что хотите начать голосование?
-            </div>
+            <div class="modal-body">Вы уверены, что хотите начать голосование?</div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
                 <button type="button" class="btn btn-primary" id="confirmStartBtn">Да</button>
@@ -200,7 +224,7 @@
     </div>
 </div>
 
-<!-- Модальное окно подтверждения окончания голосования -->
+<!-- Подтверждение окончания голосования -->
 <div class="modal fade" id="endVotingModal" tabindex="-1" aria-labelledby="endVotingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -208,9 +232,7 @@
                 <h5 class="modal-title" id="endVotingModalLabel">Подтверждение</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
-            <div class="modal-body">
-                Вы уверены, что хотите закончить голосование?
-            </div>
+            <div class="modal-body">Вы уверены, что хотите закончить голосование?</div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Нет</button>
                 <button type="button" class="btn btn-danger" id="confirmEndBtn">Да</button>
@@ -218,6 +240,28 @@
         </div>
     </div>
 </div>
+
+{% if not poll.time_start %}
+<!-- Редактор вопроса -->
+<div class="modal fade" id="questionModal" tabindex="-1" aria-labelledby="questionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionModalLabel">Вопрос</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body">
+                <div id="questionModalError" class="alert alert-danger d-none mb-3"></div>
+                <div id="questionEditorContainer"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="questionModalSaveBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <script>
 (function () {
@@ -291,7 +335,7 @@
         if (b) { b.disabled = false; b.textContent = "Да"; }
     });
 
-    // ── Copy link (event delegation — works for dynamically added rows too) ─
+    // ── Copy link (event delegation) ────────────────────────────────────────
 
     document.getElementById("participantsTable")?.addEventListener("click", function (e) {
         const btn = e.target.closest(".copy-link-btn");
@@ -320,24 +364,20 @@
 (function () {
     const SITE_NAME = "{{ SITE_NAME }}";
     const POLL_URL  = "{{ poll.url }}";
-    const ADD_URL   = "{% url 'core:add_participant' poll.pk %}";  // ends with /
+    const ADD_URL   = "{% url 'core:add_participant' poll.pk %}";
 
     function getCsrf() {
         const m = document.cookie.match(/csrftoken=([^;]+)/);
         return m ? m[1] : "";
     }
 
-    function showError(msg) {
-        window.djangoMessages?.showApiError(msg);
-    }
+    function showError(msg) { window.djangoMessages?.showApiError(msg); }
 
     function escapeAttr(s) {
         return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    function voteLink(participantUrl) {
-        return `${SITE_NAME}/${POLL_URL}/${participantUrl}`;
-    }
+    function voteLink(participantUrl) { return `${SITE_NAME}/${POLL_URL}/${participantUrl}`; }
 
     function updateNumbers() {
         document.querySelectorAll("#participantsTable tbody tr[data-participant-id]").forEach((row, i) => {
@@ -348,13 +388,12 @@
     function showEmptyIfNeeded() {
         const tbody = document.querySelector("#participantsTable tbody");
         if (!tbody.querySelector("tr[data-participant-id]") && !tbody.querySelector("#emptyRow")) {
-            const colspan = 5;
             tbody.insertAdjacentHTML("beforeend",
-                `<tr id="emptyRow"><td colspan="${colspan}" class="text-center text-muted py-4">Участники не найдены</td></tr>`);
+                `<tr id="emptyRow"><td colspan="5" class="text-center text-muted py-4">Участники не найдены</td></tr>`);
         }
     }
 
-    // ── Row rendering helpers ──────────────────────────────────────────────
+    // ── Row helpers ────────────────────────────────────────────────────────
 
     function setViewMode(row) {
         const { participantName: name, participantEmail: email, participantUrl: url } = row.dataset;
@@ -368,7 +407,6 @@
         row.querySelector(".cell-actions").innerHTML =
             `<button type="button" class="btn btn-sm btn-outline-secondary btn-edit" title="Редактировать"><i class="bi bi-pencil"></i></button>
              <button type="button" class="btn btn-sm btn-outline-danger btn-delete" title="Удалить"><i class="bi bi-trash"></i></button>`;
-        row.classList.remove("table-danger");
         attachRowHandlers(row);
     }
 
@@ -394,15 +432,6 @@
             if (e.key === "Enter") saveRow(row);
             if (e.key === "Escape") onCancel();
         }));
-    }
-
-    function setDeleteConfirm(row) {
-        row.classList.add("table-danger");
-        row.querySelector(".cell-actions").innerHTML =
-            `<button type="button" class="btn btn-sm btn-danger btn-confirm-delete" title="Подтвердить"><i class="bi bi-check-lg"></i></button>
-             <button type="button" class="btn btn-sm btn-outline-secondary btn-cancel-delete" title="Отмена"><i class="bi bi-x-lg"></i></button>`;
-        row.querySelector(".btn-confirm-delete").addEventListener("click", () => deleteRow(row));
-        row.querySelector(".btn-cancel-delete").addEventListener("click", () => setViewMode(row));
     }
 
     // ── API calls ──────────────────────────────────────────────────────────
@@ -436,7 +465,6 @@
             row.dataset.participantName  = data.name;
             row.dataset.participantEmail = data.email;
             if (data.url) row.dataset.participantUrl = data.url;
-
             document.getElementById("emptyRow")?.remove();
             setViewMode(row);
         } catch {
@@ -453,17 +481,12 @@
                 headers: { "X-CSRFToken": getCsrf() },
             });
             const data = await resp.json();
-            if (!resp.ok || !data.ok) {
-                showError(data.error || "Ошибка удаления");
-                setViewMode(row);
-                return;
-            }
+            if (!resp.ok || !data.ok) { showError(data.error || "Ошибка удаления"); return; }
             row.remove();
             updateNumbers();
             showEmptyIfNeeded();
         } catch {
             showError("Ошибка соединения");
-            setViewMode(row);
         }
     }
 
@@ -489,15 +512,312 @@
     function attachRowHandlers(row) {
         row.querySelector(".btn-edit")?.addEventListener("click", () =>
             setEditMode(row, () => setViewMode(row)));
-        row.querySelector(".btn-delete")?.addEventListener("click", () =>
-            setDeleteConfirm(row));
+        row.querySelector(".btn-delete")?.addEventListener("click", () => {
+            const name = row.dataset.participantName || row.dataset.participantEmail || "участника";
+            showConfirmModal({
+                body: `Удалить участника «${name}»?`,
+                onConfirm: () => deleteRow(row),
+            });
+        });
     }
 
-    document.querySelectorAll("#participantsTable tbody tr[data-participant-id]")
-        .forEach(attachRowHandlers);
+    document.querySelectorAll("#participantsTable tbody tr[data-participant-id]").forEach(attachRowHandlers);
+    document.getElementById("addParticipantBtn")?.addEventListener("click", addNewRow);
+})();
+</script>
 
-    document.getElementById("addParticipantBtn")
-        ?.addEventListener("click", addNewRow);
+<script>
+(function () {
+    const QUESTIONS_URL = "{% url 'core:question_list' poll.pk %}";
+
+    function getCsrf() {
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? m[1] : "";
+    }
+
+    function showError(msg) { window.djangoMessages?.showApiError(msg); }
+
+    function escapeHtml(s) {
+        return String(s)
+            .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function showModalError(msg) {
+        const el = document.getElementById("questionModalError");
+        el.textContent = msg;
+        el.classList.remove("d-none");
+    }
+
+    function clearModalError() {
+        const el = document.getElementById("questionModalError");
+        el.classList.add("d-none");
+        el.textContent = "";
+    }
+
+    // ── Card DOM helpers ───────────────────────────────────────────────────
+
+    function buildQuestionCard(q) {
+        const card = document.createElement("div");
+        card.className = "border rounded p-3 mb-2 question-card";
+        card.dataset.questionId   = q.id;
+        card.dataset.questionType = q.type;
+        card.dataset.questionMin  = q.min;
+        card.dataset.questionMax  = q.max;
+
+        const badges = (q.choices || [])
+            .map(c => `<span class="badge text-bg-light border">${escapeHtml(typeof c === "string" ? c : c.choice)}</span>`)
+            .join(" ");
+
+        const typeInfo = q.type === "multiple"
+            ? `<div class="text-muted small mt-1 question-minmax">Мультивыбор: от ${q.min} до ${q.max}</div>`
+            : "";
+
+        card.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1 me-3">
+                    <div class="text-muted small mb-1 question-number"></div>
+                    <div class="fw-semibold mb-2 question-text">${escapeHtml(q.text)}</div>
+                    <div class="d-flex flex-wrap gap-1 question-choices">${badges}</div>
+                    ${typeInfo}
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <button type="button" class="btn btn-sm btn-outline-secondary btn-edit-question" title="Редактировать">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-delete-question" title="Удалить">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>`;
+        return card;
+    }
+
+    function updateQuestionNumbers() {
+        document.querySelectorAll("#questionsContainer .question-card").forEach((card, i) => {
+            const el = card.querySelector(".question-number");
+            if (el) el.textContent = `Вопрос ${i + 1}`;
+        });
+    }
+
+    function showQuestionsEmptyIfNeeded() {
+        const container = document.getElementById("questionsContainer");
+        if (!container.querySelector(".question-card") && !container.querySelector("#questionsEmpty")) {
+            container.insertAdjacentHTML("beforeend",
+                '<div id="questionsEmpty" class="text-center text-muted py-3">Вопросы не добавлены</div>');
+        }
+    }
+
+    // ── Event delegation ───────────────────────────────────────────────────
+
+    document.getElementById("questionsContainer").addEventListener("click", function (e) {
+        const card = e.target.closest(".question-card");
+        if (!card) return;
+        if (e.target.closest(".btn-edit-question")) {
+            openQuestionModal(card);
+        } else if (e.target.closest(".btn-delete-question")) {
+            const qText = card.querySelector(".question-text")?.textContent || "этот вопрос";
+            showConfirmModal({
+                body: `Удалить вопрос «${qText}»?`,
+                onConfirm: () => deleteQuestion(card),
+            });
+        }
+    });
+
+    document.getElementById("addQuestionBtn")?.addEventListener("click", () => openQuestionModal(null));
+
+    // ── Editor state ───────────────────────────────────────────────────────
+
+    let editorState = null;
+    let editingCard = null;
+
+    function openQuestionModal(card) {
+        editingCard = card;
+        clearModalError();
+        if (card) {
+            const choices = Array.from(card.querySelectorAll(".question-choices .badge"))
+                .map(b => b.textContent.trim());
+            editorState = {
+                question: card.querySelector(".question-text")?.textContent || "",
+                type:     card.dataset.questionType || "question",
+                min:      parseInt(card.dataset.questionMin) || 1,
+                max:      parseInt(card.dataset.questionMax) || 1,
+                choices:  choices.length ? choices : ["", ""],
+            };
+        } else {
+            editorState = { question: "", type: "question", min: 1, max: 1, choices: ["", ""] };
+        }
+        document.getElementById("questionModalLabel").textContent =
+            card ? "Редактировать вопрос" : "Добавить вопрос";
+        renderQuestionEditor();
+        new bootstrap.Modal(document.getElementById("questionModal")).show();
+    }
+
+    function renderQuestionEditor() {
+        const q = editorState;
+        const container = document.getElementById("questionEditorContainer");
+        container.innerHTML = "";
+
+        // Text
+        const textDiv = document.createElement("div");
+        textDiv.className = "mb-3";
+        const textInput = document.createElement("input");
+        textInput.type = "text";
+        textInput.id = "qEditorText";
+        textInput.className = "form-control";
+        textInput.placeholder = "Текст вопроса";
+        textInput.value = q.question;
+        textInput.addEventListener("input", e => { q.question = e.target.value; });
+        textDiv.appendChild(textInput);
+        container.appendChild(textDiv);
+
+        // Type toggle
+        const typeDiv = document.createElement("div");
+        typeDiv.className = "form-check form-switch mb-3";
+        typeDiv.innerHTML = `
+            <input class="form-check-input" type="checkbox" role="switch" id="qEditorType" ${q.type === "multiple" ? "checked" : ""}>
+            <label class="form-check-label" for="qEditorType">Мультивыбор</label>`;
+        typeDiv.querySelector("input").addEventListener("change", e => {
+            q.type = e.target.checked ? "multiple" : "question";
+            if (q.type === "question") { q.min = 1; q.max = 1; }
+            else if (q.min === 1 && q.max === 1) { q.min = 0; q.max = 1; }
+            renderQuestionEditor();
+        });
+        container.appendChild(typeDiv);
+
+        // Min / Max
+        if (q.type === "multiple") {
+            const row = document.createElement("div");
+            row.className = "row g-3 mb-3";
+            row.innerHTML = `
+                <div class="col-6">
+                    <label class="form-label small mb-1" for="qEditorMin">Минимум</label>
+                    <input id="qEditorMin" type="number" min="0" class="form-control" value="${q.min}">
+                </div>
+                <div class="col-6">
+                    <label class="form-label small mb-1" for="qEditorMax">Максимум</label>
+                    <input id="qEditorMax" type="number" min="1" class="form-control" value="${q.max}">
+                </div>`;
+            row.querySelector("#qEditorMin").addEventListener("input", e => {
+                const cap = q.choices.length;
+                q.min = Math.min(Math.max(0, parseInt(e.target.value) || 0), cap);
+                if (q.max < q.min) q.max = q.min;
+                renderQuestionEditor();
+            });
+            row.querySelector("#qEditorMax").addEventListener("input", e => {
+                const cap = q.choices.length;
+                q.max = Math.min(Math.max(1, parseInt(e.target.value) || 1), cap);
+                if (q.min > q.max) q.min = q.max;
+                renderQuestionEditor();
+            });
+            container.appendChild(row);
+        }
+
+        // Choices
+        const choicesDiv = document.createElement("div");
+        choicesDiv.className = "mb-2";
+        q.choices.forEach((choice, cIdx) => {
+            const group = document.createElement("div");
+            group.className = "input-group mb-2";
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "form-control";
+            input.placeholder = "Вариант ответа";
+            input.value = choice;
+            input.addEventListener("input", e => { q.choices[cIdx] = e.target.value; });
+            group.appendChild(input);
+            if (q.choices.length > 1) {
+                const delBtn = document.createElement("button");
+                delBtn.type = "button";
+                delBtn.className = "btn btn-outline-danger";
+                delBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+                delBtn.addEventListener("click", () => {
+                    q.choices.splice(cIdx, 1);
+                    if (q.type === "multiple") {
+                        const cap = q.choices.length;
+                        if (q.max > cap) q.max = cap;
+                        if (q.min > q.max) q.min = q.max;
+                    }
+                    renderQuestionEditor();
+                });
+                group.appendChild(delBtn);
+            }
+            choicesDiv.appendChild(group);
+        });
+        const addChoiceBtn = document.createElement("button");
+        addChoiceBtn.type = "button";
+        addChoiceBtn.className = "btn btn-sm btn-outline-secondary";
+        addChoiceBtn.textContent = "Добавить вариант";
+        addChoiceBtn.addEventListener("click", () => { q.choices.push(""); renderQuestionEditor(); });
+        choicesDiv.appendChild(addChoiceBtn);
+        container.appendChild(choicesDiv);
+    }
+
+    // ── Save / Delete ──────────────────────────────────────────────────────
+
+    async function saveQuestion() {
+        clearModalError();
+        const q = editorState;
+        const choices = q.choices.filter(c => c && c.trim());
+        if (!q.question.trim()) { showModalError("Введите текст вопроса"); return; }
+        if (choices.length < 2) { showModalError("Нужно минимум 2 варианта ответа"); return; }
+
+        const saveBtn = document.getElementById("questionModalSaveBtn");
+        saveBtn.disabled = true;
+
+        const isNew = !editingCard;
+        const url = isNew ? QUESTIONS_URL : `${QUESTIONS_URL}${editingCard.dataset.questionId}/`;
+
+        try {
+            const resp = await fetch(url, {
+                method: isNew ? "POST" : "PATCH",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": getCsrf() },
+                body: JSON.stringify({ question: q.question.trim(), type: q.type, min: q.min, max: q.max, choices }),
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) { showModalError(data.error || "Ошибка сохранения"); saveBtn.disabled = false; return; }
+
+            bootstrap.Modal.getInstance(document.getElementById("questionModal"))?.hide();
+            const newCard = buildQuestionCard(data);
+            if (isNew) {
+                document.getElementById("questionsEmpty")?.remove();
+                document.getElementById("questionsContainer").appendChild(newCard);
+            } else {
+                editingCard.replaceWith(newCard);
+            }
+            updateQuestionNumbers();
+        } catch {
+            showModalError("Ошибка соединения");
+            saveBtn.disabled = false;
+        }
+    }
+
+    async function deleteQuestion(card) {
+        try {
+            const resp = await fetch(`${QUESTIONS_URL}${card.dataset.questionId}/`, {
+                method: "DELETE",
+                headers: { "X-CSRFToken": getCsrf() },
+            });
+            const data = await resp.json();
+            if (!resp.ok || !data.ok) { showError(data.error || "Ошибка удаления"); return; }
+            card.remove();
+            updateQuestionNumbers();
+            showQuestionsEmptyIfNeeded();
+        } catch {
+            showError("Ошибка соединения");
+        }
+    }
+
+    document.getElementById("questionModalSaveBtn")?.addEventListener("click", saveQuestion);
+    document.getElementById("questionModal")?.addEventListener("shown.bs.modal", () => {
+        document.getElementById("qEditorText")?.focus();
+    });
+    document.getElementById("questionModal")?.addEventListener("hidden.bs.modal", () => {
+        const btn = document.getElementById("questionModalSaveBtn");
+        if (btn) btn.disabled = false;
+    });
+
+    updateQuestionNumbers();
 })();
 </script>
 {% endif %}
@@ -519,24 +839,18 @@
             participants.forEach(({ id, is_voted }) => {
                 const row = document.querySelector(`#participantsTable tr[data-participant-id="${id}"]`);
                 if (!row) return;
-                if (is_voted) {
-                    row.classList.replace("table-warning", "table-success");
-                } else {
-                    allVoted = false;
-                }
+                if (is_voted) { row.classList.replace("table-warning", "table-success"); }
+                else { allVoted = false; }
             });
 
             if (allVoted) stop();
-        } catch { /* ignore network errors */ }
+        } catch { /* ignore */ }
     }
 
-    function start() {
-        if (!timerId) timerId = setInterval(refresh, 5000);
-    }
+    function start() { if (!timerId) timerId = setInterval(refresh, 5000); }
 
     function stop() {
-        clearInterval(timerId);
-        timerId = null;
+        clearInterval(timerId); timerId = null;
         const el = document.getElementById("liveIndicator");
         if (el) el.style.display = "none";
     }
@@ -551,4 +865,3 @@
 </script>
 {% endif %}
 {% endblock %}
-
