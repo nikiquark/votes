@@ -89,7 +89,7 @@ class PollUser(models.Model):
         constraints = [
             models.UniqueConstraint(fields=('poll', 'email'), name='uniq_poll_email'),
         ]
-        ordering = ('poll_id', 'email')
+        ordering = ('name', 'email')
 
 class Question(models.Model):
     poll = models.ForeignKey(Poll, on_delete=models.CASCADE, related_name='questions')
